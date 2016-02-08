@@ -293,6 +293,8 @@ TriggerObjectFilter<T>::filter( edm::Event& iEvent, const edm::EventSetup& iSetu
            for (typename edm::RefVector<std::vector<T> >::const_iterator iRecoObj =
                 recoObjs->begin(); iRecoObj != recoObjs->end();
               ++iRecoObj) {
+              // recoObjColl->push_back(*iRecoObj);
+              //passingRecoObjRefKeys1.push_back(iRecoObj->key()); 
              if(((*iRecoObj)->pt())>0.0)
               histos1D_["etaDistri_num1"]->Fill((*iRecoObj)->eta());
       //       isLooseMuon1=muon::isLooseMuon(**iRecoObj);

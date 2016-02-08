@@ -211,14 +211,14 @@ process.genMatchEight1=cms.EDFilter('GenMatchedMuonProducer1',
 #muon trigger object filter
 process.muonTriggerObjectFilter = cms.EDFilter(
     'MuonTriggerObjectFilter',
-    recoObjTag = cms.InputTag('MuonIWant'),
+    recoObjTag = cms.InputTag('SingleMuon'),
     triggerEventTag = cms.untracked.InputTag("hltTriggerSummaryAOD", "", "HLT"),
     triggerResultsTag = cms.untracked.InputTag("TriggerResults", "", "HLT"),
     triggerDelRMatch = cms.untracked.double(0.1),
-    hltTags = cms.VInputTag(cms.InputTag("HLT_TripleMu_12_10_5_v1", "", "HLT")
+    hltTags = cms.VInputTag(cms.InputTag("HLT_Mu45_eta2p1_v1", "", "HLT")
                             ),
-    theRightHLTTag = cms.InputTag("HLT_TripleMu_12_10_5_v1"),
-    theRightHLTSubFilter1 = cms.InputTag("hltL1TripleMu553L2TriMuFiltered3L3TriMuFiltered5"),
+    theRightHLTTag = cms.InputTag("HLT_Mu45_eta2p1_v1"),
+    theRightHLTSubFilter1 = cms.InputTag("hltL3fL1sMu16orMu25L1f0L2f10QL3Filtered45e2p1Q"),
     HLTSubFilters = cms.untracked.VInputTag(""),
     minNumObjsToPassFilter1= cms.uint32(1),
     )
@@ -314,7 +314,11 @@ process.SingleMuonsPartnerSelector*
 process.SingleMuonPartnerLooseID*
 process.OppositeSign
 )
-
+process.quickcheck=cms.Sequence(
+process.MuonIWant*
+process.SingleMuon*
+process.muonTriggerObjectFilter
+)
 process.SeventeenTauMu = cms.Sequence(
     process.SeventeenGeVMuSelector*
     process.highestSeventeen*
@@ -338,5 +342,5 @@ process.EightTauMu = cms.Sequence(
     process.genMatchEight0
 )
 
-process.p = cms.Path(process.SingleMuonSelection)
+process.p = cms.Path(process.quickcheck)
                            
