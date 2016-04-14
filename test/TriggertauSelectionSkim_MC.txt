@@ -1,7 +1,7 @@
 import FWCore.ParameterSet.Config as cms
 from subprocess import *
 import FWCore.Utilities.FileUtils as FileUtils
-mylist=FileUtils.loadListFromFile('/afs/cern.ch/user/m/mshi/CMSSW_7_6_3/src/GGHAA2Mu2TauAnalysis/heavy750light9Reco.txt')
+mylist=FileUtils.loadListFromFile('/afs/cern.ch/user/m/mshi/CMSSW_7_6_3/src/GGHAA2Mu2TauAnalysis/DrellYan.txt')
 process = cms.Process("SKIM")
 
 #PDG IDs
@@ -49,7 +49,7 @@ TAU_RARE = 15
 ANY_PT_RANK = -1
 
 process.load("FWCore.MessageService.MessageLogger_cfi")
-process.MessageLogger.cerr.FwkReport.reportEvery = cms.untracked.int32(1000)
+process.MessageLogger.cerr.FwkReport.reportEvery = cms.untracked.int32(100)
 
 process.options = cms.untracked.PSet(wantSummary = cms.untracked.bool(True),
                 SkipEvent = cms.untracked.vstring('ProductNotFound'))
@@ -76,7 +76,7 @@ process.load("RecoTauTag.RecoTau.RecoTauPiZeroProducer_cfi")
 process.load('Tools/CleanJets/cleanjets_cfi')
 
 #define a parameter set to be passed to all modules that utilize GenTauDecayID for signal taus
-AMuMuPSet = cms.PSet(momPDGID = cms.vint32(A_PDGID),
+AMuMuPSet = cms.PSet(momPDGID = cms.vint32(Z_PDGID),
                                    chargedHadronPTMin = cms.double(0.0),
                                    neutralHadronPTMin = cms.double(0.0),
                                    chargedLeptonPTMin = cms.double(0.0),
@@ -261,7 +261,7 @@ process.genMatchedSelector = cms.EDFilter(
     genTauDecayIDPSet = AMuMuPSet,      #need to know the pseudoscalar a mother
     applyPTCuts = cms.bool(False),        #should always be false
     countKShort = cms.bool(False),        #should always be false
-    dR = cms.double(0.25),
+    dR = cms.double(0.1),
     Bins=cms.vdouble(2.0,4.0),                 #dR criteria for matching
     minNumGenObjectsToPassFilter = cms.uint32(1) #EDFilter returns true if >=1 gen-matched reco muon is found
     )
@@ -292,13 +292,10 @@ process.Mu45Selector = cms.EDFilter(
     triggerEventTag = cms.untracked.InputTag("hltTriggerSummaryAOD", "", "HLT"),
     triggerResultsTag = cms.untracked.InputTag("TriggerResults", "", "HLT"),
     MatchCut = cms.untracked.double(0.1),
-    hltTags = cms.VInputTag(cms.InputTag("HLT_Mu45_eta2p1_v2", "", "HLT")
+    hltTags = cms.VInputTag(cms.InputTag("HLT_Mu45_eta2p1_v1", "", "HLT")
                             ),
-    theRightHLTTag = cms.InputTag("HLT_Mu45_eta2p1_v2"),
-#    theRightHLTSubFilter1 = cms.InputTag("hltL3fL1sMu16orMu25L1f0L2f10QL3Filtered45e2p1Q"),
-    theRightHLTSubFilter1 = cms.InputTag("hltL2fL1sMu16orMu25L1f0L2Filtered10Q"),
-   # theRightHLTSubFilter1=cms.InputTag("hltL1sL1SingleMu16ORSingleMu25"),
-   # theRightHLTSubFilter1=cms.InputTag("hltL1fL1sMu16orMu25L1Filtered0"),
+    theRightHLTTag = cms.InputTag("HLT_Mu45_eta2p1_v1"),
+    theRightHLTSubFilter1 = cms.InputTag("hltL3fL1sMu16orMu25L1f0L2f16QL3Filtered45e2p1Q"),
     HLTSubFilters = cms.untracked.VInputTag(""),
     minNumObjsToPassFilter1= cms.uint32(0),
     outFileName=cms.string("DrellY_Mu45Selector.root")
@@ -318,7 +315,7 @@ process.genMatchedMuonAfterVetoMu1 = cms.EDFilter(
     genTauDecayIDPSet = AMuMuPSet,      #need to know the pseudoscalar a mother
     applyPTCuts = cms.bool(False),        #should always be false
     countKShort = cms.bool(False),        #should always be false
-    dR = cms.double(0.025),      
+    dR = cms.double(0.1),      
     Bins=cms.vdouble(2.0, 4.0),           #dR criteria for matching
     minNumGenObjectsToPassFilter = cms.uint32(1) #EDFilter returns true if >=1 gen-matched reco muon is found
     )
@@ -349,7 +346,7 @@ process.AMuTriggerAnalyzer=cms.EDAnalyzer(
    GenMatchedRecoMuonTag= cms.InputTag('AMuonSelector'),
    MuPassTrigger=cms.InputTag('Mu45Selector'),
    GenMatchedRecoMuonTag2 = cms.InputTag('HighestPTMuon2'),
-   Bins=cms.vdouble(0.0,0.02,0.04,0.06,0.08, 0.1, 0.2, 0.3, 0.4, 0.5, 1,2, 3,4,5)
+   Bins=cms.vdouble(0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 1,2, 3,4,5)
 )
 process.tauMuonPTSelector = cms.EDFilter('MuonRefSelector',
                                          src = cms.InputTag('muons'),
