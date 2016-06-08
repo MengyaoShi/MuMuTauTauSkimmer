@@ -273,10 +273,15 @@ TriggerObjectFilter<T>::filter( edm::Event& iEvent, const edm::EventSetup& iSetu
                           iRecoObj->key()) == passingRecoObjRefKeys1_NoHLT.end())) {
          passingRecoObjRefKeys1_NoHLT.push_back(iRecoObj->key());
          histos1D_["etaDistri_de2"]->Fill((*iRecoObj)->eta());
-  
+         recoObjColl->push_back(*iRecoObj);
        }
      }
    }
+  // if(passingRecoObjRefKeys1_NoHLT.size()<1){
+   //   std::cout << "Run " << iEvent.run() << ", event " << iEvent.id().event() << ", lumi section ";
+    // std::cout << iEvent.getLuminosityBlock().luminosityBlock() << std::endl << std::endl;
+  // }
+     
    histos1D_["keysize1"]->Fill(passingRecoObjRefKeys1_NoHLT.size());
  
 
@@ -296,7 +301,7 @@ TriggerObjectFilter<T>::filter( edm::Event& iEvent, const edm::EventSetup& iSetu
              if ((abs((*iRecoObj)->pt()- TO1.pt())/((*iRecoObj)->pt()) < Cut_) &&
                  (std::find(passingRecoObjRefKeys1.begin(), passingRecoObjRefKeys1.end(),
                             iRecoObj->key()) == passingRecoObjRefKeys1.end())) {
-               recoObjColl->push_back(*iRecoObj);
+              //   recoObjColl->push_back(*iRecoObj);
                  histos1D_["etaDistri_num"]->Fill((*iRecoObj)->eta());
                  histos2D_[ "ptTrigCand1"]->Fill((*iRecoObj)->pt(), TO1.pt());
                passingRecoObjRefKeys1.push_back(iRecoObj->key());
@@ -305,8 +310,8 @@ TriggerObjectFilter<T>::filter( edm::Event& iEvent, const edm::EventSetup& iSetu
          } 
      }//firedH
    if(!firedHLT){
-     std::cout << "Run " << iEvent.run() << ", event " << iEvent.id().event() << ", lumi section ";
-     std::cout << iEvent.getLuminosityBlock().luminosityBlock() << std::endl << std::endl;
+    // std::cout << "Run " << iEvent.run() << ", event " << iEvent.id().event() << ", lumi section ";
+    // std::cout << iEvent.getLuminosityBlock().luminosityBlock() << std::endl << std::endl;
      }
    iEvent.put(recoObjColl);
    return (passingRecoObjRefKeys1.size() >= minNumObjsToPassFilter1_);

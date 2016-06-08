@@ -52,7 +52,7 @@ process.MessageLogger.cerr.FwkReport.reportEvery = cms.untracked.int32(1000)
 process.options = cms.untracked.PSet(wantSummary = cms.untracked.bool(True),
                 SkipEvent = cms.untracked.vstring('ProductNotFound'))
 
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(10000) )
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(1000) )
 process.source = cms.Source("PoolSource", fileNames = cms.untracked.vstring(*mylist))
 
 process.source.inputCommands = cms.untracked.vstring("keep *")
@@ -73,69 +73,20 @@ process.load("Configuration.Geometry.GeometryRecoDB_cff")
 process.load("RecoTauTag.Configuration.RecoPFTauTag_cff")
 process.load("RecoTauTag.RecoTau.RecoTauPiZeroProducer_cfi")
 process.load('Tools/CleanJets/cleanjets_cfi')
-ZMuMuPSet = cms.PSet(momPDGID = cms.vint32(Z_PDGID),
-                                   chargedHadronPTMin = cms.double(0.0),
-                                   neutralHadronPTMin = cms.double(0.0),
-                                   chargedLeptonPTMin = cms.double(0.0),
-                                   totalPTMin = cms.double(0.0))
-process.genZMuSelector=cms.EDFilter(
- 'GenObjectProducer',
-    genParticleTag = cms.InputTag('genParticles'),
-    absMatchPDGIDs = cms.vuint32(MU_PDGID),     #choose a gen muon...
-    sisterAbsMatchPDGID = cms.uint32(MU_PDGID), #...whose sister is another gen muon...
-    genTauDecayIDPSet = ZMuMuPSet,              #...and whose mother is a pseudoscalar a
-    primaryTauDecayType = cms.uint32(TAU_ALL),  #choose TAU_ALL when the gen particle is not a tau
-    sisterTauDecayType = cms.uint32(TAU_ALL),   #choose TAU_ALL when the gen particle sister is not a tau
-    primaryTauPTRank = cms.int32(ANY_PT_RANK),  #should always be ANY_PT_RANK
-    primaryTauHadronicDecayType = cms.int32(TAU_ALL_HAD), #choose TAU_ALL_HAD when the gen particle is not a tau
-    sisterHadronicDecayType = cms.int32(TAU_ALL_HAD),     #choose TAU_ALL_HAD when the gen particle sister is not a tau
-    primaryTauAbsEtaMax = cms.double(-1.0), #no cut on gen particle |eta|
-    primaryTauPTMin = cms.double(-1.0),     #no cut on gen particle pT
-    countSister = cms.bool(True),           #True if you want to put both muons in the output collection, False if just one
-    applyPTCuts = cms.bool(False),          #should always be False
-    countKShort = cms.bool(False),          #should always be False
-    minNumGenObjectsToPassFilter = cms.uint32(2), #EDFilter only returns true if >=2 muons are found
-    makeAllCollections = cms.bool(False) #should always be False
-    )
-process.NearestMuonFromTau=cms.EDFilter(
-'NearestRecoObject',
- tauTag=cms.InputTag('muHadTauSelector','','SKIM'),
- muonTag=cms.InputTag('tauMuonSelector','','SKIM'),
- minNumObjsToPassFilter=cms.uint32(1)
-)
-process.NearestMuonRef=cms.EDFilter('MuonRefSelector',
-                                 src = cms.InputTag('NearestMuonFromTau'),
-                                 cut = cms.string('pt > 0.0'),
-                                 filter = cms.bool(True)
-)
-process.genMatchZMuSelector = cms.EDFilter(
-    'GenMatchedMuonProducer',
-    genParticleTag = cms.InputTag('genParticles'),
-    selectedGenParticleTag = cms.InputTag('genZMuSelector'), #must be a reco::GenParticleRefVector
-    recoObjTag = cms.InputTag('NearestMuonRef'),              #must be a reco::MuonRefVector
-    baseRecoObjTag = cms.InputTag('muons'),
-    genTauDecayIDPSet = ZMuMuPSet,      #need to know the pseudoscalar a mother
-    applyPTCuts = cms.bool(False),        #should always be false
-    countKShort = cms.bool(False),        #should always be false
-    dR = cms.double(0.1),                 #dR criteria for matching
-   Bins=cms.vdouble(0.0, 5.0,10.0, 15.0, 20.0, 40.0, 60.0, 80.0, 100.0),
-    minNumGenObjectsToPassFilter = cms.uint32(0) #EDFilter returns true if >=1 gen-matched reco muon is found
-    )
 #require event to fire IsoMu24_eta2p1
 process.RECOAnalyze=cms.EDAnalyzer(
 'MuMuTauTauRecoAnalyzer',
   tauTag=cms.InputTag('muHadTauSelector','','SKIM'),
+  muonTag1=cms.InputTag('Mu45Selector','','SKIM'),
+  muonTag2=cms.InputTag('HighestPTMuon2','','SKIM'),
  jetMuonMapTag=cms.InputTag('CleanJets','muonValMap','SKIM'),
   genParticleTag=cms.InputTag('genParticles'),
-  muHadMassBins=cms.vdouble(0.0, 2.0, 4.0, 6.0, 8.0, 10.0,12.0,14.0),
+  muHadMassBins=cms.vdouble(0.0, 2.0, 4.0, 6.0, 8.0, 10.0,12.0,14.0, 16.0),
+  FourBInvMassBins=cms.vdouble(0.0,100.0,200.0,300.0,400.0,500.0,600.0,700.0,800.0),
   outFileName=cms.string('testDrellYan_RECOAnalyzer.root')
 )
 
 process.noSelectionSequence = cms.Sequence(
-process.genZMuSelector*
-process.NearestMuonFromTau*
-process.NearestMuonRef*
-process.genMatchZMuSelector*
 process.RECOAnalyze
 )
 
