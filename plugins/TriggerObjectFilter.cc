@@ -163,16 +163,15 @@ TriggerObjectFilter<T>::beginJob()
 {
   //std::cout<< "beginJob" << std::endl;
   edm::Service<TFileService> fileService;
-  histos1D_[ "etaDistri_num" ]=fileService->make<TH1D>("etaDistri_num","eta distribution of highest pt muon with fired HLT and trigger-reco match",60,-3.,3.);
-  histos1D_["etaDistri_de"]=fileService->make<TH1D>("etaDistri_de","eta distribution of all reco muon without trigger fired or trigger-reco match H750a09",60,-3.,3.);
-  histos1D_["num_divide_de"]=fileService->make<TH1D>("num_divide_de","eta distribution of trigger+trigger matching efficiency",60,-3.,3.);
-  histos1D_[ "etaDistri_num1" ]=fileService->make<TH1D>("etaDistri_num1","eta distribution of highet pt reco muon with fired HLT no trigger-reco match",60,-3.,3.);
-  histos1D_["num_divide_de1"]=fileService->make<TH1D>("num_divide_de1","eta distribution of highest pt muon trigger efficiency(no trigger-reco match done)",60,-3.,3.);
+  histos1D_[ "etaDistri_YesTriggerYesMatch" ]=fileService->make<TH1D>("etaDistri_YesTriggerYesMatch","eta distribution of highest pt muon with fired HLT and trigger-reco match",60,-3.,3.);
+  histos1D_["etaDistri_NoTriggerNoMatch"]=fileService->make<TH1D>("etaDistri_NoTriggerNoMatch","eta distribution of all reco muon without trigger fired or trigger-reco match H750a09",60,-3.,3.);
+  histos1D_[ "etaDistri_YesTriggerNoMatch" ]=fileService->make<TH1D>("etaDistri_YesTriggerNoMatch","eta distribution of highet pt reco muon with fired HLT no trigger-reco match",60,-3.,3.);
+ histos1D_["etaDistri_NoTriggerYesMatch"]=fileService->make<TH1D>("etaDistri_NoTriggerYesMatch","eta distribution of reco muon with trigger-reco match, no HLT fired",60,-3.,3.);
+  histos1D_["Efficiency_YesTriggerYesMatch"]=fileService->make<TH1D>("Efficiency_YesTriggerYesMatch","eta distribution of trigger+trigger matching efficiency",60,-3.,3.);
 
-  histos1D_["etaDistri_de2"]=fileService->make<TH1D>("etaDistri_de","eta distribution of reco muon with trigger-reco match, no HLT fired",60,-3.,3.);
-  histos1D_["num_divide_de2"]=fileService->make<TH1D>("num_divide_de","eta distribution of highest pt muon trigger efficiency(with trigger-reco match)",60,-3.,3.);
+  histos1D_["Efficiency_YesTriggerNoMatch"]=fileService->make<TH1D>("Efficiency_YesTriggerNoMatch","eta distribution of highest pt muon trigger efficiency(with bot denominator and numerator trigger-reco match)",60,-3.,3.);
 
-  histos1D_["keysize1"]=fileService->make<TH1D>("keysize1","#of particles per event passing Mu17 leg statistics",10,0,10);
+  histos1D_["EventSize"]=fileService->make<TH1D>("EventSize","#of particles per event pass",10,0,10);
   histos2D_["ptTrigCand1"] =fileService->make< TH2D >("ptTrigCand1","Object vs. candidate_higher_p_{T} (GeV)",150, 0., 150., 150, 0., 150.);
   histos2D_[ "ptTrigCand1" ]->SetXTitle( "candidate p_{T} (GeV)" );
   histos2D_[ "ptTrigCand1" ]->SetYTitle( "object p_{T} (GeV)" );
@@ -198,7 +197,7 @@ TriggerObjectFilter<T>::filter( edm::Event& iEvent, const edm::EventSetup& iSetu
                 recoObjs->begin(); iRecoObj != recoObjs->end();
               ++iRecoObj){
     
-      histos1D_["etaDistri_de"]->Fill((*iRecoObj)->eta());   
+      histos1D_["etaDistri_NoTriggerNoMatch"]->Fill((*iRecoObj)->eta());   
     if(max<((*iRecoObj)->pt()))
     {
       max=(*iRecoObj)->pt();
@@ -272,8 +271,8 @@ TriggerObjectFilter<T>::filter( edm::Event& iEvent, const edm::EventSetup& iSetu
                  (std::find(passingRecoObjRefKeys1_NoHLT.begin(), passingRecoObjRefKeys1_NoHLT.end(),
                           iRecoObj->key()) == passingRecoObjRefKeys1_NoHLT.end())) {
          passingRecoObjRefKeys1_NoHLT.push_back(iRecoObj->key());
-         histos1D_["etaDistri_de2"]->Fill((*iRecoObj)->eta());
-         recoObjColl->push_back(*iRecoObj);
+         histos1D_["etaDistri_NoTriggerYesMatch"]->Fill((*iRecoObj)->eta());
+         //recoObjColl->push_back(*iRecoObj);
        }
      }
    }
@@ -282,7 +281,7 @@ TriggerObjectFilter<T>::filter( edm::Event& iEvent, const edm::EventSetup& iSetu
     // std::cout << iEvent.getLuminosityBlock().luminosityBlock() << std::endl << std::endl;
   // }
      
-   histos1D_["keysize1"]->Fill(passingRecoObjRefKeys1_NoHLT.size());
+   histos1D_["EventSize"]->Fill(passingRecoObjRefKeys1_NoHLT.size());
  
 
 
@@ -296,13 +295,13 @@ TriggerObjectFilter<T>::filter( edm::Event& iEvent, const edm::EventSetup& iSetu
            for (typename edm::RefVector<std::vector<T> >::const_iterator iRecoObj =
                 recoObjs->begin(); iRecoObj != recoObjs->end();
               ++iRecoObj) {
-              histos1D_["etaDistri_num1"]->Fill((*iRecoObj)->eta());
+              histos1D_["etaDistri_YesTriggerNoMatch"]->Fill((*iRecoObj)->eta());
       //       isLooseMuon1=muon::isLooseMuon(**iRecoObj);
-             if ((abs((*iRecoObj)->pt()- TO1.pt())/((*iRecoObj)->pt()) < Cut_) &&
+             if ((deltaR(**iRecoObj, TO1) < Cut_) &&
                  (std::find(passingRecoObjRefKeys1.begin(), passingRecoObjRefKeys1.end(),
                             iRecoObj->key()) == passingRecoObjRefKeys1.end())) {
-              //   recoObjColl->push_back(*iRecoObj);
-                 histos1D_["etaDistri_num"]->Fill((*iRecoObj)->eta());
+                 recoObjColl->push_back(*iRecoObj);
+                 histos1D_["etaDistri_YesTriggerYesMatch"]->Fill((*iRecoObj)->eta());
                  histos2D_[ "ptTrigCand1"]->Fill((*iRecoObj)->pt(), TO1.pt());
                passingRecoObjRefKeys1.push_back(iRecoObj->key());
              }
@@ -326,9 +325,8 @@ TriggerObjectFilter<T>::filter( edm::Event& iEvent, const edm::EventSetup& iSetu
 template<class T>
 void 
 TriggerObjectFilter<T>::endJob() {
-   histos1D_["num_divide_de"]->Divide(  histos1D_[ "etaDistri_num" ],  histos1D_[ "etaDistri_de" ]);
-   histos1D_["num_divide_de1"]->Divide(  histos1D_[ "etaDistri_num1" ],  histos1D_[ "etaDistri_de" ]);
-   histos1D_["num_divide_de2"]->Divide(  histos1D_[ "etaDistri_num" ],  histos1D_[ "etaDistri_de2" ]);
+   histos1D_["Efficiency_YesTriggerNoMatch"]->Divide(  histos1D_[ "etaDistri_YesTriggerYesMatch" ],  histos1D_[ "etaDistri_NoTriggerYesMatch" ]);
+   histos1D_["Efficiency_YesTriggerYesMatch"]->Divide(  histos1D_[ "etaDistri_YesTriggerYesMatch" ],  histos1D_[ "etaDistri_NoTriggerNoMatch" ]);
 }
 
 
