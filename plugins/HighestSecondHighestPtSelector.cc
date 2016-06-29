@@ -1,9 +1,9 @@
 // -*- C++ -*-
 //
-// Package:    temp/PTETACUT
-// Class:      PTETACUT
+// Package:    temp/HighestSecondHighestPtSelector
+// Class:      HighestSecondHighestPtSelector
 // 
-/**\class PTETACUT PTETACUT.cc temp/PTETACUT/plugins/PTETACUT.cc
+/**\class HighestSecondHighestPtSelector HighestSecondHighestPtSelector.cc temp/HighestSecondHighestPtSelector/plugins/HighestSecondHighestPtSelector.cc
 
  Description: [one line class summary]
 
@@ -40,10 +40,10 @@
 // class declaration
 //
 
-class PTETACUT : public edm::EDFilter {
+class HighestSecondHighestPtSelector : public edm::EDFilter {
    public:
-      explicit PTETACUT(const edm::ParameterSet&);
-      ~PTETACUT();
+      explicit HighestSecondHighestPtSelector(const edm::ParameterSet&);
+      ~HighestSecondHighestPtSelector();
 
       static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
@@ -58,10 +58,7 @@ class PTETACUT : public edm::EDFilter {
       //virtual void endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&) override;
 
       // ----------member data ---------------------------
- edm::EDGetTokenT<edm::RefVector<std::vector<reco::Muon> > > muonTag_;
- unsigned int minNumObjsToPassFilter_;
- double Eta_;
- double Pt_;
+edm::EDGetTokenT<reco::MuonRefVector> muonTag_; 
 };
 
 //
@@ -75,19 +72,15 @@ class PTETACUT : public edm::EDFilter {
 //
 // constructors and destructor
 //
-PTETACUT::PTETACUT(const edm::ParameterSet& iConfig):
- muonTag_(consumes<edm::RefVector<std::vector<reco::Muon> > >(iConfig.getParameter<edm::InputTag>("muonTag"))),
- minNumObjsToPassFilter_(iConfig.getParameter<unsigned int>("minNumObjsToPassFilter")),
- Eta_(iConfig.getParameter<double>("Eta")),
- Pt_(iConfig.getParameter<double>("Pt"))
+HighestSecondHighestPtSelector::HighestSecondHighestPtSelector(const edm::ParameterSet& iConfig):
+  muonTag_(consumes<reco::MuonRefVector>(iConfig.getParameter<edm::InputTag>("muonTag")))
 {
-
    //now do what ever initialization is needed
    produces<reco::MuonRefVector>();
 }
 
 
-PTETACUT::~PTETACUT()
+HighestSecondHighestPtSelector::~HighestSecondHighestPtSelector()
 {
  
    // do anything here that needs to be done at desctruction time
@@ -102,45 +95,75 @@ PTETACUT::~PTETACUT()
 
 // ------------ method called on each new Event  ------------
 bool
-PTETACUT::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
+HighestSecondHighestPtSelector::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
-  using namespace edm;
-  unsigned int nPassingMuons=0;
-  edm::Handle<edm::RefVector<std::vector<reco::Muon> > > recoObjs;
-  iEvent.getByToken(muonTag_, recoObjs);
-  std::auto_ptr<reco::MuonRefVector> muonColl(new reco::MuonRefVector);
-  for (typename edm::RefVector<std::vector<reco::Muon> >::const_iterator iRecoObj =
-       recoObjs->begin(); iRecoObj != recoObjs->end();
-       ++iRecoObj) 
-  {
-    if(abs((*iRecoObj)->eta())<Eta_ && (*iRecoObj)->pt()>Pt_)
-    {
-      muonColl->push_back(*iRecoObj);
-      nPassingMuons++;
-    }
-  }
-  
-  iEvent.put(muonColl);
+   bool LargerThan0=true;
+   using namespace edm;
 
-  return (nPassingMuons >= minNumObjsToPassFilter_);
+   edm::Handle<reco::MuonRefVector> pMuons;
+   iEvent.getByToken(muonTag_, pMuons); 
+   if((pMuons->size())<=1)
+   {
+     LargerThan0=false;
+   }
+   else
+   {
+     double max=0.0;
+     double secondMax=0.0;
+     reco::MuonRef maxMuon;
+     reco::MuonRef secondMaxMuon;
+     for(reco::MuonRefVector::const_iterator iMuon=pMuons->begin();
+         iMuon!=pMuons->end();++iMuon)
+     {
+       if(((*iMuon)->pt())> max)
+       {
+         max=(*iMuon)->pt();
+         maxMuon=(*iMuon);
+       }
+       else
+         continue;
+     }
+    
+
+     for(reco::MuonRefVector::const_iterator iMuon=pMuons->begin();
+         iMuon!=pMuons->end();++iMuon)
+     {
+       if(((*iMuon)->pt()< (maxMuon->pt()))&&((*iMuon)->pt()>secondMax )&&((*iMuon)->pdgId()==(-1)*((maxMuon)->pdgId())))
+       {
+         secondMax=(*iMuon)->pt();
+         secondMaxMuon=(*iMuon);
+       }
+       else 
+  	  continue;
+     }
+     if(secondMaxMuon.isNull())
+     {LargerThan0=0; return LargerThan0;
+     }
+
+     std::auto_ptr<reco::MuonRefVector> muonColl(new reco::MuonRefVector);
+     muonColl->push_back(maxMuon);
+     muonColl->push_back(secondMaxMuon);
+     iEvent.put(muonColl);
+   }
+
+   return LargerThan0;
 }
-   
 
 // ------------ method called once each job just before starting event loop  ------------
 void 
-PTETACUT::beginJob()
+HighestSecondHighestPtSelector::beginJob()
 {
 }
 
 // ------------ method called once each job just after ending the event loop  ------------
 void 
-PTETACUT::endJob() {
+HighestSecondHighestPtSelector::endJob() {
 }
 
 // ------------ method called when starting to processes a run  ------------
 /*
 void
-PTETACUT::beginRun(edm::Run const&, edm::EventSetup const&)
+HighestSecondHighestPtSelector::beginRun(edm::Run const&, edm::EventSetup const&)
 { 
 }
 */
@@ -148,7 +171,7 @@ PTETACUT::beginRun(edm::Run const&, edm::EventSetup const&)
 // ------------ method called when ending the processing of a run  ------------
 /*
 void
-PTETACUT::endRun(edm::Run const&, edm::EventSetup const&)
+HighestSecondHighestPtSelector::endRun(edm::Run const&, edm::EventSetup const&)
 {
 }
 */
@@ -156,7 +179,7 @@ PTETACUT::endRun(edm::Run const&, edm::EventSetup const&)
 // ------------ method called when starting to processes a luminosity block  ------------
 /*
 void
-PTETACUT::beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&)
+HighestSecondHighestPtSelector::beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&)
 {
 }
 */
@@ -164,14 +187,14 @@ PTETACUT::beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup cons
 // ------------ method called when ending the processing of a luminosity block  ------------
 /*
 void
-PTETACUT::endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&)
+HighestSecondHighestPtSelector::endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&)
 {
 }
 */
  
 // ------------ method fills 'descriptions' with the allowed parameters for the module  ------------
 void
-PTETACUT::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+HighestSecondHighestPtSelector::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   //The following says we do not know what parameters are allowed so do no validation
   // Please change this to state exactly what you do use, even if it is no parameters
   edm::ParameterSetDescription desc;
@@ -179,4 +202,4 @@ PTETACUT::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   descriptions.addDefault(desc);
 }
 //define this as a plug-in
-DEFINE_FWK_MODULE(PTETACUT);
+DEFINE_FWK_MODULE(HighestSecondHighestPtSelector);

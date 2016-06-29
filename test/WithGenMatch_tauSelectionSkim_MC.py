@@ -1,7 +1,7 @@
 import FWCore.ParameterSet.Config as cms
 from subprocess import *
 import FWCore.Utilities.FileUtils as FileUtils
-mylist=FileUtils.loadListFromFile('/afs/cern.ch/user/m/mshi/CMSSW_7_6_3/src/GGHAA2Mu2TauAnalysis/heavy750light9Reco.txt')
+mylist=FileUtils.loadListFromFile('/afs/cern.ch/user/m/mshi/CMSSW_7_6_3/src/GGHAA2Mu2TauAnalysis/Yohay.txt')
 process = cms.Process("SKIM")
 
 #PDG IDs
@@ -54,7 +54,7 @@ process.MessageLogger.cerr.FwkReport.reportEvery = cms.untracked.int32(1000)
 process.options = cms.untracked.PSet(wantSummary = cms.untracked.bool(True),
                 SkipEvent = cms.untracked.vstring('ProductNotFound'))
 
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(10000) )
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(300) )
 process.source = cms.Source("PoolSource", fileNames = cms.untracked.vstring(*mylist))
 
 process.source.inputCommands = cms.untracked.vstring("keep *")
@@ -285,30 +285,11 @@ process.filter_1 = hlt.hltHighLevel.clone(
     throw = False
     )
 
-
-process.Mu45Selector = cms.EDFilter(
-    'MuonTriggerObjectFilter',
-    recoObjTag = cms.InputTag('AMuonSelector'),
-    triggerEventTag = cms.untracked.InputTag("hltTriggerSummaryAOD", "", "HLT"),
-    triggerResultsTag = cms.untracked.InputTag("TriggerResults", "", "HLT"),
-    MatchCut = cms.untracked.double(0.1),
-    hltTags = cms.VInputTag(cms.InputTag("HLT_Mu45_eta2p1_v2", "", "HLT")
-                            ),
-    theRightHLTTag = cms.InputTag("HLT_Mu45_eta2p1_v2"),
-    theRightHLTSubFilter1 = cms.InputTag("hltL3fL1sMu16orMu25L1f0L2f10QL3Filtered45e2p1Q"),
-   # theRightHLTSubFilter1 = cms.InputTag("hltL2fL1sMu16orMu25L1f0L2Filtered10Q"),
-   # theRightHLTSubFilter1=cms.InputTag("hltL1sL1SingleMu16ORSingleMu25"),
-   # theRightHLTSubFilter1=cms.InputTag("hltL1fL1sMu16orMu25L1Filtered0"),
-    HLTSubFilters = cms.untracked.VInputTag(""),
-    minNumObjsToPassFilter1= cms.uint32(0),
-    outFileName=cms.string("H750a09_Mu45Selector.root")
-)
 process.afterVetoSingleMuon = cms.EDFilter('VetoMuon',
                               muonTag=cms.InputTag('MuonIWant'),
                               vetoMuonTag=cms.InputTag('AMuonSelector'),
                               minNumObjsToPassFilter=cms.uint32(1)
 )
-
 process.genMatchedMuonAfterVetoMu1 = cms.EDFilter(
     'GenMatchedMuonProducer',
     genParticleTag = cms.InputTag('genParticles'),
@@ -318,7 +299,7 @@ process.genMatchedMuonAfterVetoMu1 = cms.EDFilter(
     genTauDecayIDPSet = AMuMuPSet,      #need to know the pseudoscalar a mother
     applyPTCuts = cms.bool(False),        #should always be false
     countKShort = cms.bool(False),        #should always be false
-    dR = cms.double(0.05),      
+    dR = cms.double(0.05),
     Bins=cms.vdouble(2.0, 4.0),           #dR criteria for matching
     minNumGenObjectsToPassFilter = cms.uint32(1) #EDFilter returns true if >=1 gen-matched reco muon is found
     )
@@ -344,13 +325,31 @@ process.OppositeSign=cms.EDFilter('OppositeSign',
 process.HighestPTMuon2 = cms.EDFilter('HighestPtSelector',
                                  muonTag = cms.InputTag('OppositeSign')
 )
+process.Mu45Selector = cms.EDFilter(
+    'MuonTriggerObjectFilter',
+    recoObjTag = cms.InputTag('AMuonSelector'),
+    triggerEventTag = cms.untracked.InputTag("hltTriggerSummaryAOD", "", "HLT"),
+    triggerResultsTag = cms.untracked.InputTag("TriggerResults", "", "HLT"),
+    MatchCut = cms.untracked.double(0.05),
+    hltTags = cms.VInputTag(cms.InputTag("HLT_Mu45_eta2p1_v2", "", "HLT")
+                            ),
+    theRightHLTTag = cms.InputTag("HLT_Mu45_eta2p1_v2"),
+    theRightHLTSubFilter1 = cms.InputTag("hltL3fL1sMu16orMu25L1f0L2f10QL3Filtered45e2p1Q"),
+   # theRightHLTSubFilter1 = cms.InputTag("hltL2fL1sMu16orMu25L1f0L2Filtered10Q"),
+   # theRightHLTSubFilter1=cms.InputTag("hltL1sL1SingleMu16ORSingleMu25"),
+   # theRightHLTSubFilter1=cms.InputTag("hltL1fL1sMu16orMu25L1Filtered0"),
+    HLTSubFilters = cms.untracked.VInputTag(""),
+    minNumObjsToPassFilter1= cms.uint32(0),
+    outFileName=cms.string("H750a09_Mu45Selector.root")
+)
+
 process.AMuTriggerAnalyzer=cms.EDAnalyzer(
    'AMuTriggerAnalyzer',
    GenMatchedRecoMuonTag= cms.InputTag('AMuonSelector'),
    MuPassTrigger=cms.InputTag('Mu45Selector'),
    GenMatchedRecoMuonTag2 = cms.InputTag('HighestPTMuon2'),
    Chi2Bins=cms.vdouble(0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,10.0,20.0),
-   DRBins=cms.vdouble(0.0,0.02,0.04,0.06,0.08, 0.1, 0.2, 0.3, 0.4, 0.5, 1,2, 3,4,5),
+   DRBins=cms.vdouble(0.0,0.02,0.04,0.06,0.08, 0.10, 0.12, 0.14),
    PtBins=cms.vdouble(0.0,20.0,40.0,60.0,80.0, 100.0, 200.0,300.0,400.0,500.0),
    EtaBins=cms.vdouble(-5.0,-4.0,-3.0,-2.0,-1.8, -1.6, -1.4, -1.2, -1.0,-0.8, -0.6, -0.4, -0.2, 0.0,0.2, 0.4, 0.6, 0.8, 1.0,1.2, 1.4, 1.6, 1.8, 2.0,3.0,4.0,5.0),
    outFileName=cms.string('H750a09_AMuTriggerAnalyzer.root')
@@ -467,11 +466,11 @@ process.MuMuSequenceSelector=cms.Sequence(
 #     process.filter_1
         process.genMatchedSelector*
         process.AMuonSelector*
-        process.Mu45Selector*
 	process.afterVetoSingleMuon*
         process.genMatchedMuonAfterVetoMu1*
         process.AMuonSelectorAfterVeto*
         process.OppositeSign*
+        process.Mu45Selector*
         process.HighestPTMuon2*
 process.AMuTriggerAnalyzer
 )

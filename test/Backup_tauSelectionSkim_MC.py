@@ -224,20 +224,17 @@ process.MuonIWant = cms.EDFilter('MuonRefSelector',
                                  src = cms.InputTag('muons'),
                                  cut = cms.string('pt > 0.0'),
                                  filter = cms.bool(True)
-
 )
-process.HighestPtAndSecondHighestPtMuonOppositeSign=cms.EDFilter('HighestSecondHighestPtSelector',
-                                                     muonTag=cms.InputTag('MuonIWant')
-)
-process.LooseMu1Mu2=cms.EDFilter('LooseMuon',
-                               muonTag=cms.InputTag('HighestPtAndSecondHighestPtMuonOppositeSign'),
-                               minNumObjsToPassFilter=cms.uint32(2)
+process.HighestPTMuon = cms.EDFilter('HighestPtSelector',
+                                 muonTag = cms.InputTag('MuonIWant')
 )
 process.PtEtaCut = cms.EDFilter('PTETACUT',
-                                 muonTag=cms.InputTag('LooseMu1Mu2'),
-                                 Eta=cms.double(2.1),
-                                 Pt=cms.double(45.0),
+                                 muonTag=cms.InputTag('HighestPTMuon'),
                                  minNumObjsToPassFilter=cms.uint32(1)
+)
+process.LooseMu1=cms.EDFilter('LooseMuon',
+                               muonTag=cms.InputTag('PtEtaCut'),
+                               minNumObjsToPassFilter=cms.uint32(1)
 )
 process.filter_1 = hlt.hltHighLevel.clone(
     HLTPaths = [ 'HLT_Mu45_eta2p1_v*'],
@@ -247,7 +244,7 @@ process.filter_1 = hlt.hltHighLevel.clone(
 
 process.Mu45Selector = cms.EDFilter(
     'MuonTriggerObjectFilter',
-    recoObjTag = cms.InputTag('PtEtaCut'),
+    recoObjTag = cms.InputTag('LooseMu1'),
     triggerEventTag = cms.untracked.InputTag("hltTriggerSummaryAOD", "", "HLT"),
     triggerResultsTag = cms.untracked.InputTag("TriggerResults", "", "HLT"),
     MatchCut = cms.untracked.double(0.05),
@@ -262,10 +259,22 @@ process.Mu45Selector = cms.EDFilter(
     minNumObjsToPassFilter1= cms.uint32(1),
     outFileName=cms.string("DrellY_Mu45Selector.root")
 )
-process.afterVetoMu1Mu2 = cms.EDFilter('VetoMuon',
+process.afterVetoSingleMuon = cms.EDFilter('VetoMuon',
                               muonTag=cms.InputTag('MuonIWant'),
-                              vetoMuonTag=cms.InputTag('LooseMu1Mu2'),
+                              vetoMuonTag=cms.InputTag('Mu45Selector'),
                               minNumObjsToPassFilter=cms.uint32(1)
+)
+process.LooseMu2=cms.EDFilter('LooseMuon',
+                               muonTag=cms.InputTag('afterVetoSingleMuon'),
+                               minNumObjsToPassFilter=cms.uint32(1)
+)
+process.OppositeSign=cms.EDFilter('OppositeSign',
+                                   muonTag=cms.InputTag('LooseMu2'),
+                                   SingleMuonTag=cms.InputTag('LooseMu1'),
+                                   minNumObjsToPassFilter=cms.uint32(1)
+)
+process.HighestPTMuon2 = cms.EDFilter('HighestPtSelector',
+                                 muonTag = cms.InputTag('OppositeSign')
 )
 #process.AMuTriggerAnalyzer=cms.EDAnalyzer(
 #   'AMuTriggerAnalyzer',
@@ -274,19 +283,27 @@ process.afterVetoMu1Mu2 = cms.EDFilter('VetoMuon',
 #   GenMatchedRecoMuonTag2 = cms.InputTag('HighestPTMuon2'),
 #   Bins=cms.vdouble(0.0,0.02,0.04,0.06,0.08, 0.1, 0.2, 0.3, 0.4, 0.5, 1,2, 3,4,5)
 #)
-process.tauMuonSelector=cms.EDFilter('LooseMuon',
-                               muonTag=cms.InputTag('afterVetoMu1Mu2'),
-                               minNumObjsToPassFilter=cms.uint32(1)
-)
-process.tauMuonHighestPtSelector=cms.EDFilter('HighestPtSelector',
-                                               muonTag=cms.InputTag('tauMuonSelector')
-)# to be studied remove or not
-process.tauMuonPtSelector=cms.EDFilter('PTETACUT',
-                                 muonTag=cms.InputTag('tauMuonHighestPtSelector'),
-                                 Eta=cms.double(2.3),
-                                 Pt=cms.double(5.0),
-                                 minNumObjsToPassFilter=cms.uint32(1)
-)
+process.tauMuonPTSelector = cms.EDFilter('MuonRefSelector',
+                                         src = cms.InputTag('muons'),
+                                         cut = cms.string('pt > 5.0'),
+                                         filter = cms.bool(True)
+                                         )
+process.CustomtauMuonSelector = cms.EDFilter('CustomMuonSelector',
+                                       baseMuonTag = cms.InputTag('muons'),
+                                       muonTag = cms.InputTag('tauMuonPTSelector'),
+                                       vtxTag = cms.InputTag('offlinePrimaryVertices'),
+                                       vetoMuonTag = cms.InputTag('Mu45Selector'),
+                                       vetoMuonTag2=cms.InputTag('HighestPTMuon2'),
+                                       muonID = cms.string('tracker'),
+                                       PFIsoMax = cms.double(-1),
+                                       detectorIsoMax = cms.double(-1.0),
+                                       PUSubtractionCoeff = cms.double(0.5),
+                                       usePFIso = cms.bool(True),
+                                       passIso = cms.bool(True),
+                                       etaMax = cms.double(2.4),
+                                       minNumObjsToPassFilter = cms.uint32(1)
+                                       )
+
 #search for a muon with pT > 25 GeV as in WHbb CMS AN-2012/349 and proceed if one can be found
 #this will produce a ref to the original muon collection
 
@@ -307,7 +324,7 @@ process.tauMuonPtSelector=cms.EDFilter('PTETACUT',
 
 #clean the jets of soft muons, then rebuild the taus
 
-process.CleanJets.muonSrc=cms.InputTag('tauMuonPtSelector') # 
+process.CleanJets.muonSrc=cms.InputTag('CustomtauMuonSelector') # 
 process.CleanJets.PFCandSrc = cms.InputTag('particleFlow')
 process.CleanJets.cutOnGenMatches = cms.bool(False)
 process.CleanJets.outFileName = cms.string('H750a09_CleanJets.root')
@@ -318,9 +335,8 @@ process.ak4PFJetsLegacyHPSPiZeros.jetSrc = cms.InputTag('CleanJets', 'ak4PFJetsN
 process.ak4PFJetsRecoTauChargedHadrons.jetSrc = cms.InputTag('CleanJets', 'ak4PFJetsNoMu', 'SKIM')
 process.combinatoricRecoTaus.jetSrc = cms.InputTag('CleanJets', 'ak4PFJetsNoMu', 'SKIM')
 
-process.recoTauCommonSequence = cms.Sequence(   process.tauMuonSelector*
-                                                process.tauMuonHighestPtSelector*
-                                                process.tauMuonPtSelector*
+process.recoTauCommonSequence = cms.Sequence(   process.tauMuonPTSelector*
+                                                process.CustomtauMuonSelector*
 						process.CleanJets*
 						process.ak4PFJetTracksAssociatorAtVertex*
 						process.recoTauAK4PFJets08Region*
@@ -344,12 +360,12 @@ process.muHadTauSelector = cms.EDFilter(
     jetTag = cms.InputTag('CleanJets', 'ak4PFJetsNoMu', 'SKIM'),
     muonRemovalDecisionTag = cms.InputTag('CleanJets','valMap','SKIM'),  
     overlapCandTag = cms.InputTag('Mu45Selector'),
-    overlapCandTag1= cms.InputTag('LooseMu1Mu2'),#this module has a selection efficiency 5%, but comment this line out, rate goes up to 80%.
+    overlapCandTag1= cms.InputTag('HighestPTMuon2'),#this module has a selection efficiency 5%, but comment this line out, rate goes up to 80%.
     passDiscriminator = cms.bool(True),
-    pTMin = cms.double(20.0),
-    etaMax = cms.double(2.3),
+    pTMin = cms.double(5.0),
+    etaMax = cms.double(2.4),
     isoMax = cms.double(-1.0),
-    dR = cms.double(0.5),
+    dR = cms.double(0.1),
     minNumObjsToPassFilter = cms.uint32(1),
     outFileName=cms.string('H750a09_muHadTauSelector.root')
     )
@@ -357,7 +373,7 @@ process.RECOAnalyze=cms.EDAnalyzer(
 'MuMuTauTauRecoAnalyzer',
   tauTag=cms.InputTag('muHadTauSelector'),
   muonTag1=cms.InputTag('Mu45Selector'),
-  muonTag2=cms.InputTag('LooseMu1Mu2'),
+  muonTag2=cms.InputTag('HighestPTMuon2'),
   genParticleTag=cms.InputTag('genParticles'),
  jetMuonMapTag=cms.InputTag('CleanJets','muonValMap','SKIM'),
   muHadMassBins=cms.vdouble(0.0, 2.0, 4.0, 6.0, 8.0, 10.0,12.0,14.0),
@@ -374,22 +390,22 @@ process.noSelectedOutput = cms.OutputModule(
 #sequences
 process.MuMuSequenceSelector=cms.Sequence(
 	process.MuonIWant*
-        process.HighestPtAndSecondHighestPtMuonOppositeSign*
-        process.LooseMu1Mu2*
+	process.HighestPTMuon*
         process.PtEtaCut*
+        process.LooseMu1*
         #process.filter_1 
         process.Mu45Selector*
-	process.afterVetoMu1Mu2*
-        process.tauMuonSelector*
-        process.tauMuonHighestPtSelector*
-        process.tauMuonPtSelector
+	process.afterVetoSingleMuon*
+        process.LooseMu2*
+        process.OppositeSign*
+        process.HighestPTMuon2
 #process.AMuTriggerAnalyzer
 )
 
-process.noSelectionSequence = cms.Sequence(process.MuMuSequenceSelector*
-                                           process.PFTau*
-                                           process.muHadTauSelector*
-                                           process.btagging
+process.noSelectionSequence = cms.Sequence(process.MuMuSequenceSelector
+                                          # process.PFTau*
+                                          # process.muHadTauSelector*
+                                          # process.btagging
                                           # process.RECOAnalyze
 )
 
