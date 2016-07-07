@@ -433,14 +433,14 @@ process.muHadTauSelector = cms.EDFilter(
     cms.InputTag('hpsPFTauDiscriminationByMediumCombinedIsolationDBSumPtCorr3Hits','','SKIM')
     ),
     jetTag = cms.InputTag('CleanJets', 'ak4PFJetsNoMu', 'SKIM'),
-    muonRemovalDecisionTag = cms.InputTag('CleanJets','valMap','SKIM'),  
+    muonRemovalDecisionTag = cms.InputTag('CleanJets','valMap','SKIM'),
     overlapCandTag = cms.InputTag('Mu45Selector'),
-    overlapCandTag1= cms.InputTag('OppositeSign'),#this module has a selection efficiency 5%, but comment this line out, rate goes up to 80%.
+    overlapCandTag1= cms.InputTag('HighestPtAndMuonOppositeSignDR'),#this module has a selection efficiency 5%, but comment this line out, rate goes up to 80%.
     passDiscriminator = cms.bool(True),
-    pTMin = cms.double(5.0),
-    etaMax = cms.double(2.4),
+    pTMin = cms.double(20.0),
+    etaMax = cms.double(2.3),
     isoMax = cms.double(-1.0),
-    dR = cms.double(0.1),
+    dR = cms.double(0.5),
     minNumObjsToPassFilter = cms.uint32(1),
     outFileName=cms.string('H750a09_muHadTauSelector.root')
     )
@@ -474,15 +474,15 @@ process.MuMuSequenceSelector=cms.Sequence(
 	process.Mu3*
 	process.Mu3ID*
         process.tauMuonPtSelector*
-       process.tauMuonAnalyzer*
-        process.genTauMuSelector
+       process.tauMuonAnalyzer
+#        process.genTauMuSelector
 #	process.genMatchedTauMuSelector
 )
 
-process.noSelectionSequence = cms.Sequence(process.MuMuSequenceSelector
-                                     #      process.PFTau*
-                                      #     process.muHadTauSelector*
-                                        #   process.btagging*
+process.noSelectionSequence = cms.Sequence(process.MuMuSequenceSelector*
+                                           process.PFTau*
+                                           process.muHadTauSelector*
+                                           process.btagging
                                         #   process.RECOAnalyze
 )
 
