@@ -235,7 +235,7 @@ process.TightMu1Mu2 = cms.EDFilter('CustomMuonSelector',
                                        vtxTag = cms.InputTag('offlinePrimaryVertices'),
                                        #vetoMuonTag = cms.InputTag('Mu45Selector'),
                                        #vetoMuonTag2=cms.InputTag('HighestPTMuon2'),
-                                       muonID = cms.string('loose'),
+                                       muonID = cms.string('tight'),
                                        PFIsoMax = cms.double(-1),
                                        detectorIsoMax = cms.double(-1.0),
                                        PUSubtractionCoeff = cms.double(0.5),
@@ -280,7 +280,7 @@ process.tauMuonSelector = cms.EDFilter('CustomMuonSelector',
                                        baseMuonTag = cms.InputTag('muons'),
                                        muonTag = cms.InputTag('thirdHighestPtMuon'),
                                        vtxTag = cms.InputTag('offlinePrimaryVertices'),
-                                       muonID = cms.string('loose'),
+                                       muonID = cms.string('tight'),
                                        PFIsoMax = cms.double(-1),
                                        detectorIsoMax = cms.double(-1.0),
                                        PUSubtractionCoeff = cms.double(0.5),
@@ -294,6 +294,11 @@ process.tauMuonPtSelector=cms.EDFilter('PTETACUT',
                                  Eta=cms.double(2.3),
                                  Pt=cms.double(5.0),
                                  minNumObjsToPassFilter=cms.uint32(1)
+)
+process.thirdHighestPtMuonAnalyzer=cms.EDAnalyzer(
+        'thirdHighestPtMuonAnalyzer',
+        genParticleTag = cms.InputTag('genParticles'),
+        thirdHighestPtMuon=cms.InputTag('tauMuonPtSelector')
 )
 #search for a muon with pT > 25 GeV as in WHbb CMS AN-2012/349 and proceed if one can be found
 #this will produce a ref to the original muon collection
@@ -388,14 +393,15 @@ process.MuMuSequenceSelector=cms.Sequence(
         process.Mu45Selector*
 	process.thirdHighestPtMuon*
         process.tauMuonSelector*
-        process.tauMuonPtSelector
+        process.tauMuonPtSelector*
+        process.thirdHighestPtMuonAnalyzer
 #process.AMuTriggerAnalyzer
 )
 
-process.noSelectionSequence = cms.Sequence(process.MuMuSequenceSelector*
-                                           process.PFTau*
-                                          process.muHadTauSelector*
-                                           process.btagging
+process.noSelectionSequence = cms.Sequence(process.MuMuSequenceSelector
+ #                                          process.PFTau*
+ #                                         process.muHadTauSelector*
+ #                                          process.btagging
                                           # process.RECOAnalyze
 )
 
