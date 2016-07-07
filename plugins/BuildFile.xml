@@ -10,6 +10,7 @@
 <use name="HLTrigger/HLTcore"/>
 <use name="DataFormats/PatCandidates"/>
 <use name="DataFormats/ParticleFlowCandidate"/>
+<use name="DataFormats/HepMCCandidate"/>
 <use name="Tools/Common"/>
 <use name="root"/>
 <use name="rootgraphics"/>

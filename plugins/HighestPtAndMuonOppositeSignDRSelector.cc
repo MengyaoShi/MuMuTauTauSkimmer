@@ -1,9 +1,9 @@
 // -*- C++ -*-
 //
-// Package:    temp/VetoMuon
-// Class:      VetoMuon
+// Package:    temp/HighestPtAndMuonOppositeSignDRSelector
+// Class:      HighestPtAndMuonOppositeSignDRSelector
 // 
-/**\class VetoMuon VetoMuon.cc temp/VetoMuon/plugins/VetoMuon.cc
+/**\class HighestPtAndMuonOppositeSignDRSelector HighestPtAndMuonOppositeSignDRSelector.cc temp/HighestPtAndMuonOppositeSignDRSelector/plugins/HighestPtAndMuonOppositeSignDRSelector.cc
 
  Description: [one line class summary]
 
@@ -40,10 +40,10 @@
 // class declaration
 //
 
-class VetoMuon : public edm::EDFilter {
+class HighestPtAndMuonOppositeSignDRSelector : public edm::EDFilter {
    public:
-      explicit VetoMuon(const edm::ParameterSet&);
-      ~VetoMuon();
+      explicit HighestPtAndMuonOppositeSignDRSelector(const edm::ParameterSet&);
+      ~HighestPtAndMuonOppositeSignDRSelector();
 
       static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
@@ -58,9 +58,8 @@ class VetoMuon : public edm::EDFilter {
       //virtual void endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&) override;
 
       // ----------member data ---------------------------
- edm::EDGetTokenT<reco::MuonRefVector> muonTag_;
- edm::EDGetTokenT<reco::MuonRefVector> vetoMuonTag_; 
- unsigned int minNumObjsToPassFilter_;
+edm::EDGetTokenT<reco::MuonRefVector> muonTag_; 
+double Cut_;
 };
 
 //
@@ -74,18 +73,16 @@ class VetoMuon : public edm::EDFilter {
 //
 // constructors and destructor
 //
-VetoMuon::VetoMuon(const edm::ParameterSet& iConfig):
+HighestPtAndMuonOppositeSignDRSelector::HighestPtAndMuonOppositeSignDRSelector(const edm::ParameterSet& iConfig):
   muonTag_(consumes<reco::MuonRefVector>(iConfig.getParameter<edm::InputTag>("muonTag"))),
- vetoMuonTag_(consumes<reco::MuonRefVector>(iConfig.getParameter<edm::InputTag>("vetoMuonTag"))),
- minNumObjsToPassFilter_(iConfig.getParameter<unsigned int>("minNumObjsToPassFilter"))
+  Cut_(iConfig.getParameter<double>("dRCut"))
 {
-
    //now do what ever initialization is needed
    produces<reco::MuonRefVector>();
 }
 
 
-VetoMuon::~VetoMuon()
+HighestPtAndMuonOppositeSignDRSelector::~HighestPtAndMuonOppositeSignDRSelector()
 {
  
    // do anything here that needs to be done at desctruction time
@@ -100,64 +97,73 @@ VetoMuon::~VetoMuon()
 
 // ------------ method called on each new Event  ------------
 bool
-VetoMuon::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
+HighestPtAndMuonOppositeSignDRSelector::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
-  using namespace edm;
-  std::auto_ptr<reco::MuonRefVector> muonColl(new reco::MuonRefVector);
+   bool LargerThan0=true;
+   using namespace edm;
 
-  edm::Handle<reco::MuonRefVector> pMuons;
-  iEvent.getByToken(muonTag_, pMuons);
+   edm::Handle<reco::MuonRefVector> pMuons;
+   iEvent.getByToken(muonTag_, pMuons); 
+   if((pMuons->size())<=1)
+   {
+     LargerThan0=false;
+   }
+   else
+   {
+     double max=0.0;
+     reco::MuonRef maxMuon;
+     reco::MuonRef OppositeSignSmallDRMuon;
+     for(reco::MuonRefVector::const_iterator iMuon=pMuons->begin();
+         iMuon!=pMuons->end();++iMuon)
+     {
+       if(((*iMuon)->pt())> max)
+       {
+         max=(*iMuon)->pt();
+         maxMuon=(*iMuon);
+       }
+       else
+         continue;
+     }
+    
 
-  edm::Handle<reco::MuonRefVector> pVetoMuons;
-  iEvent.getByToken(vetoMuonTag_, pVetoMuons);
+     for(reco::MuonRefVector::const_iterator iMuon=pMuons->begin();
+         iMuon!=pMuons->end();++iMuon)
+     {
+       if(((*iMuon)->pt()< (maxMuon->pt()))&&(deltaR(**iMuon, *maxMuon)<Cut_ )&&((*iMuon)->pdgId()==(-1)*((maxMuon)->pdgId())))
+       {
+         OppositeSignSmallDRMuon=(*iMuon);
+       }
+       else 
+  	  continue;
+     }
+     if(OppositeSignSmallDRMuon.isNull())
+     {LargerThan0=0; return LargerThan0;
+     }
 
+     std::auto_ptr<reco::MuonRefVector> muonColl(new reco::MuonRefVector);
+     muonColl->push_back(maxMuon);
+     muonColl->push_back(OppositeSignSmallDRMuon);
+     iEvent.put(muonColl);
+   }
 
-  std::vector<int> vetoMuonRefKeys;
-  if (pVetoMuons.isValid()) {
-    for (reco::MuonRefVector::const_iterator iVetoMuon = pVetoMuons->begin(); 
-	 iVetoMuon != pVetoMuons->end(); ++iVetoMuon) {
-      vetoMuonRefKeys.push_back(iVetoMuon->key());
-    }
-  }
-
-  unsigned int nPassingMuons = 0;
-  for(reco::MuonRefVector::const_iterator iMuon=pMuons->begin();
-         iMuon!=pMuons->end();++iMuon){
-    unsigned int count=0;
-    for(reco::MuonRefVector::const_iterator iVetoMuon = pVetoMuons->begin();
-	iVetoMuon != pVetoMuons->end(); ++iVetoMuon){
-    if(deltaR(**iMuon, **iVetoMuon)<0.05)
-       continue;
-    count++;
-  
-    //if (std::find(vetoMuonRefKeys.begin(), vetoMuonRefKeys.end(), 
-//		  iMuon->key()) == vetoMuonRefKeys.end()) {
-    }
-      if(count==(pVetoMuons->size()))
-      {muonColl->push_back(*iMuon);
-      ++nPassingMuons;}
-  }
-  iEvent.put(muonColl);
-
-  return (nPassingMuons >= minNumObjsToPassFilter_);
+   return LargerThan0;
 }
-   
 
 // ------------ method called once each job just before starting event loop  ------------
 void 
-VetoMuon::beginJob()
+HighestPtAndMuonOppositeSignDRSelector::beginJob()
 {
 }
 
 // ------------ method called once each job just after ending the event loop  ------------
 void 
-VetoMuon::endJob() {
+HighestPtAndMuonOppositeSignDRSelector::endJob() {
 }
 
 // ------------ method called when starting to processes a run  ------------
 /*
 void
-VetoMuon::beginRun(edm::Run const&, edm::EventSetup const&)
+HighestPtAndMuonOppositeSignDRSelector::beginRun(edm::Run const&, edm::EventSetup const&)
 { 
 }
 */
@@ -165,7 +171,7 @@ VetoMuon::beginRun(edm::Run const&, edm::EventSetup const&)
 // ------------ method called when ending the processing of a run  ------------
 /*
 void
-VetoMuon::endRun(edm::Run const&, edm::EventSetup const&)
+HighestPtAndMuonOppositeSignDRSelector::endRun(edm::Run const&, edm::EventSetup const&)
 {
 }
 */
@@ -173,7 +179,7 @@ VetoMuon::endRun(edm::Run const&, edm::EventSetup const&)
 // ------------ method called when starting to processes a luminosity block  ------------
 /*
 void
-VetoMuon::beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&)
+HighestPtAndMuonOppositeSignDRSelector::beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&)
 {
 }
 */
@@ -181,14 +187,14 @@ VetoMuon::beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup cons
 // ------------ method called when ending the processing of a luminosity block  ------------
 /*
 void
-VetoMuon::endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&)
+HighestPtAndMuonOppositeSignDRSelector::endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&)
 {
 }
 */
  
 // ------------ method fills 'descriptions' with the allowed parameters for the module  ------------
 void
-VetoMuon::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+HighestPtAndMuonOppositeSignDRSelector::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   //The following says we do not know what parameters are allowed so do no validation
   // Please change this to state exactly what you do use, even if it is no parameters
   edm::ParameterSetDescription desc;
@@ -196,4 +202,4 @@ VetoMuon::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   descriptions.addDefault(desc);
 }
 //define this as a plug-in
-DEFINE_FWK_MODULE(VetoMuon);
+DEFINE_FWK_MODULE(HighestPtAndMuonOppositeSignDRSelector);
