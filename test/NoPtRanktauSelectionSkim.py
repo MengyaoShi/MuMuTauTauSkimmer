@@ -54,7 +54,7 @@ process.MessageLogger.cerr.FwkReport.reportEvery = cms.untracked.int32(1000)
 process.options = cms.untracked.PSet(wantSummary = cms.untracked.bool(True),
                 SkipEvent = cms.untracked.vstring('ProductNotFound'))
 
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(300) )
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(10000) )
 process.source = cms.Source("PoolSource", fileNames = cms.untracked.vstring(*mylist))
 
 process.source.inputCommands = cms.untracked.vstring("keep *")
@@ -300,7 +300,7 @@ process.Mu45Selector = cms.EDFilter(
     recoObjTag = cms.InputTag('PtEtaCut'),
     triggerEventTag = cms.untracked.InputTag("hltTriggerSummaryAOD", "", "HLT"),
     triggerResultsTag = cms.untracked.InputTag("TriggerResults", "", "HLT"),
-    MatchCut = cms.untracked.double(0.05),
+    MatchCut = cms.untracked.double(0.01),
     hltTags = cms.VInputTag(cms.InputTag("HLT_Mu45_eta2p1_v2", "", "HLT")
                             ),
     theRightHLTTag = cms.InputTag("HLT_Mu45_eta2p1_v2"),
@@ -311,6 +311,19 @@ process.Mu45Selector = cms.EDFilter(
     HLTSubFilters = cms.untracked.VInputTag(""),
     minNumObjsToPassFilter1= cms.uint32(1),
     outFileName=cms.string("DrellY_Mu45Selector.root")
+)
+process.MuonVetoMu45=cms.EDFilter(
+    'VetoMuon',
+   muonTag=cms.InputTag('Mu1Mu2ID'),
+  vetoMuonTag=cms.InputTag('Mu45Selector'),
+  dRCut=cms.double(-1),
+ minNumObjsToPassFilter=cms.uint32(1)
+)
+process.triggerMuonAnalyzer=cms.EDAnalyzer(
+        'triggerMuonAnalyzer',
+        Mu1Mu2 = cms.InputTag('MuonVetoMu45'),
+        triggerMuon=cms.InputTag('Mu45Selector'),
+        Mu1Mu2NoVeto=cms.InputTag('Mu1Mu2ID')
 )
 process.genMatchedSelector = cms.EDFilter(
     'GenMatchedMuonProducer',
@@ -335,11 +348,13 @@ process.AMuTriggerAnalyzer=cms.EDAnalyzer(
    EtaBins=cms.vdouble(-5.0,-4.0,-3.0,-2.0,-1.8, -1.6, -1.4, -1.2, -1.0,-0.8, -0.6, -0.4, -0.2, 0.0,0.2, 0.4, 0.6, 0.8, 1.0,1.2, 1.4, 1.6, 1.8, 2.0,3.0,4.0,5.0)
 )
 
-process.Mu3=cms.EDFilter('Mu3Selector',
-                                                     muonTag=cms.InputTag('MuonIWant'),
-						     genParticleTag=cms.InputTag('genParticles'),
-						     dRCut=cms.double(1.0)
+process.Mu3=cms.EDFilter('VetoMuon',
+  muonTag=cms.InputTag('MuonIWant'),
+  vetoMuonTag=cms.InputTag('Mu1Mu2ID'),
+  dRCut=cms.double(1.0),
+  minNumObjsToPassFilter=cms.uint32(1)
 )
+
 process.Mu3ID = cms.EDFilter('CustomMuonSelector',
                                        baseMuonTag = cms.InputTag('muons'),
                                        muonTag = cms.InputTag('Mu3'),
@@ -363,7 +378,8 @@ process.tauMuonPtSelector=cms.EDFilter('PTETACUT',
 process.tauMuonAnalyzer=cms.EDAnalyzer(
  	'tauMuonAnalyzer',
  	genParticleTag = cms.InputTag('genParticles'),
-	thirdHighestPtMuon=cms.InputTag('tauMuonPtSelector')
+	thirdHighestPtMuon=cms.InputTag('tauMuonPtSelector'),
+	Mu1Mu2=cms.InputTag('Mu1Mu2ID')
 )
 process.genMatchedTauMuSelector = cms.EDFilter(
     'GenMatchedMuonProducer',
@@ -398,7 +414,7 @@ process.genMatchedTauMuSelector = cms.EDFilter(
 
 #clean the jets of soft muons, then rebuild the taus
 
-process.CleanJets.muonSrc=cms.InputTag('tauMuonSelector') # 
+process.CleanJets.muonSrc=cms.InputTag('tauMuonPtSelector') # 
 process.CleanJets.PFCandSrc = cms.InputTag('particleFlow')
 process.CleanJets.cutOnGenMatches = cms.bool(False)
 process.CleanJets.outFileName = cms.string('H750a09_CleanJets.root')
@@ -469,12 +485,14 @@ process.MuMuSequenceSelector=cms.Sequence(
 	process.Mu1Mu2ID*
 	process.PtEtaCut*
 	process.Mu45Selector*
+        process.MuonVetoMu45*
+ 	process.triggerMuonAnalyzer*
 #        process.genMatchedSelector*
 # 	process.AMuTriggerAnalyzer*
 	process.Mu3*
 	process.Mu3ID*
-        process.tauMuonPtSelector*
-       process.tauMuonAnalyzer
+        process.tauMuonPtSelector
+ #      process.tauMuonAnalyzer
 #        process.genTauMuSelector
 #	process.genMatchedTauMuSelector
 )
@@ -482,6 +500,7 @@ process.MuMuSequenceSelector=cms.Sequence(
 process.noSelectionSequence = cms.Sequence(process.MuMuSequenceSelector*
                                            process.PFTau*
                                            process.muHadTauSelector*
+                                           process.tauMuonAnalyzer*
                                            process.btagging
                                         #   process.RECOAnalyze
 )
