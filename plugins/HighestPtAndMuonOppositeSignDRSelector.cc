@@ -60,6 +60,7 @@ class HighestPtAndMuonOppositeSignDRSelector : public edm::EDFilter {
       // ----------member data ---------------------------
 edm::EDGetTokenT<reco::MuonRefVector> muonTag_; 
 double Cut_;
+std::map<std::string, TH1D*> histos1D_;
 };
 
 //
@@ -75,7 +76,8 @@ double Cut_;
 //
 HighestPtAndMuonOppositeSignDRSelector::HighestPtAndMuonOppositeSignDRSelector(const edm::ParameterSet& iConfig):
   muonTag_(consumes<reco::MuonRefVector>(iConfig.getParameter<edm::InputTag>("muonTag"))),
-  Cut_(iConfig.getParameter<double>("dRCut"))
+  Cut_(iConfig.getParameter<double>("dRCut")),
+  histos1D_()
 {
    //now do what ever initialization is needed
    produces<reco::MuonRefVector>();
@@ -129,9 +131,13 @@ HighestPtAndMuonOppositeSignDRSelector::filter(edm::Event& iEvent, const edm::Ev
      for(reco::MuonRefVector::const_iterator iMuon=pMuons->begin();
          iMuon!=pMuons->end();++iMuon)
      {
-       if(((*iMuon)->pt()< (maxMuon->pt()))&&(deltaR(**iMuon, *maxMuon)<Cut_ )&&((*iMuon)->pdgId()==(-1)*((maxMuon)->pdgId())))
+       if(((*iMuon)->pt()< (maxMuon->pt()))&&(deltaR(**iMuon, *maxMuon)<Cut_||(Cut_==-1) )&&((*iMuon)->pdgId()==(-1)*((maxMuon)->pdgId()))&&((*iMuon)->pt()>20.0))
        {
+         double deltaR=0.0;
          OppositeSignSmallDRMuon=(*iMuon);
+         deltaR=reco::deltaR(*maxMuon, *OppositeSignSmallDRMuon);
+         histos1D_["deltaR"]->Fill(deltaR);
+         histos1D_["pt"]->Fill((*iMuon)->pt());
        }
        else 
   	  continue;
@@ -153,6 +159,10 @@ HighestPtAndMuonOppositeSignDRSelector::filter(edm::Event& iEvent, const edm::Ev
 void 
 HighestPtAndMuonOppositeSignDRSelector::beginJob()
 {
+  edm::Service<TFileService> fileService;
+  histos1D_["deltaR"]=fileService->make<TH1D>("deltaR of trigger muon and nearest Mu1 or Mu2","deltaR of trigger muon and nearest Mu1 or Mu2", 10, 0.0, 5.0);
+  histos1D_["pt"]=fileService->make<TH1D>("pt of fake Mu2", "pt of fake Mu2", 10, 0, 10.0);
+
 }
 
 // ------------ method called once each job just after ending the event loop  ------------
