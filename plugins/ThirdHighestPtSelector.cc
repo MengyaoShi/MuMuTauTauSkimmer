@@ -119,7 +119,7 @@ ThirdHighestPtSelector::filter(edm::Event& iEvent, const edm::EventSetup& iSetup
     genObjPtrs.push_back(const_cast<reco::GenParticle*>(&(*iGenObj)));
   }
 
-   if((pMuons->size())<=1)
+   if((pMuons->size())<=2)
    {
      LargerThan0=false;
    }
@@ -127,8 +127,10 @@ ThirdHighestPtSelector::filter(edm::Event& iEvent, const edm::EventSetup& iSetup
    {
      double max=0.0;
      double secondMax=0.0;
+     double thirdMax=0.0;
      reco::MuonRef maxMuon;
      reco::MuonRef secondMaxMuon;
+     reco::MuonRef thirdMaxMuon;
      for(reco::MuonRefVector::const_iterator iMuon=pMuons->begin();
          iMuon!=pMuons->end();++iMuon)
      {
@@ -162,24 +164,25 @@ ThirdHighestPtSelector::filter(edm::Event& iEvent, const edm::EventSetup& iSetup
 
      int nearestGenObjKey1=-1;
      const reco::GenParticle* nearestGenObj1=
-       Common::nearestObject(maxMuon, genObjPtrs, nearestGenObjKey1);
+       Common::nearestObject(secondMaxMuon, genObjPtrs, nearestGenObjKey1);
        if(abs(nearestGenObj1->motherRef()->pdgId())==13)
            nearestGenObj1=(&(*(nearestGenObj1->motherRef())));
-     std::cout<< " secondMaxMuon's Nearest Gen Muon's mother=="<<nearestGenObj->motherRef()->pdgId()<<std::endl;
+     std::cout<< " secondMaxMuon's Nearest Gen Muon's mother=="<<nearestGenObj1->motherRef()->pdgId()<<std::endl;
 
      std::auto_ptr<reco::MuonRefVector> muonColl(new reco::MuonRefVector);
      for(reco::MuonRefVector::const_iterator iMuon=pMuons->begin();
          iMuon!=pMuons->end();++iMuon)
      {
-       if(((*iMuon)->pt()< (maxMuon->pt()))&& ((*iMuon)->pt()<(secondMaxMuon->pt())))
+       if(((*iMuon)->pt()< (maxMuon->pt()))&& ((*iMuon)->pt()<(secondMaxMuon->pt()))&&((*iMuon)->pt()>thirdMax))
        {
-	muonColl->push_back(*iMuon);
+	thirdMax=(*iMuon)->pt();
+        thirdMaxMuon=(*iMuon);
         LargerThan0=true;
        }
        else
           continue;
      }
-
+     muonColl->push_back(thirdMaxMuon);
      iEvent.put(muonColl);
    }
 

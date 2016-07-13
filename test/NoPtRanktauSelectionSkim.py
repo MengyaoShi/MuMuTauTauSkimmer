@@ -1,7 +1,7 @@
 import FWCore.ParameterSet.Config as cms
 from subprocess import *
 import FWCore.Utilities.FileUtils as FileUtils
-mylist=FileUtils.loadListFromFile('/afs/cern.ch/user/m/mshi/CMSSW_7_6_3/src/GGHAA2Mu2TauAnalysis/Yohay.txt')
+mylist=FileUtils.loadListFromFile('/afs/cern.ch/user/m/mshi/CMSSW_7_6_3/src/GGHAA2Mu2TauAnalysis/TTBar.txt')
 process = cms.Process("SKIM")
 
 #PDG IDs
@@ -54,7 +54,7 @@ process.MessageLogger.cerr.FwkReport.reportEvery = cms.untracked.int32(1000)
 process.options = cms.untracked.PSet(wantSummary = cms.untracked.bool(True),
                 SkipEvent = cms.untracked.vstring('ProductNotFound'))
 
-process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(10000) )
+process.maxEvents = cms.untracked.PSet( input = cms.untracked.int32(1000) )
 process.source = cms.Source("PoolSource", fileNames = cms.untracked.vstring(*mylist))
 
 process.source.inputCommands = cms.untracked.vstring("keep *")
@@ -289,6 +289,11 @@ process.Mu1Mu2ID = cms.EDFilter('CustomMuonSelector',
                                        etaMax = cms.double(2.4),
                                        minNumObjsToPassFilter = cms.uint32(2)
                                        )
+process.Mu1Mu2Analyzer=cms.EDAnalyzer(
+        'Mu1Mu2Analyzer',
+        genParticleTag = cms.InputTag('genParticles'),
+        Mu1Mu2=cms.InputTag('Mu1Mu2ID')
+)
 process.PtEtaCut = cms.EDFilter('PTETACUT',
                                  muonTag=cms.InputTag('Mu1Mu2ID'),
                                  Eta=cms.double(2.1),
@@ -314,10 +319,11 @@ process.Mu45Selector = cms.EDFilter(
 )
 process.MuonVetoMu45=cms.EDFilter(
     'VetoMuon',
-   muonTag=cms.InputTag('Mu1Mu2ID'),
-  vetoMuonTag=cms.InputTag('Mu45Selector'),
-  dRCut=cms.double(-1),
- minNumObjsToPassFilter=cms.uint32(1)
+    muonTag=cms.InputTag('Mu1Mu2ID'),
+    vetoMuonTag=cms.InputTag('Mu45Selector'),
+    dRCut=cms.double(-1),
+    genParticleTag = cms.InputTag('genParticles'), 
+    minNumObjsToPassFilter=cms.uint32(1)
 )
 process.triggerMuonAnalyzer=cms.EDAnalyzer(
         'triggerMuonAnalyzer',
@@ -352,6 +358,7 @@ process.Mu3=cms.EDFilter('VetoMuon',
   muonTag=cms.InputTag('MuonIWant'),
   vetoMuonTag=cms.InputTag('Mu1Mu2ID'),
   dRCut=cms.double(1.0),
+  genParticleTag = cms.InputTag('genParticles'),
   minNumObjsToPassFilter=cms.uint32(1)
 )
 
@@ -453,7 +460,7 @@ process.muHadTauSelector = cms.EDFilter(
     overlapCandTag = cms.InputTag('Mu45Selector'),
     overlapCandTag1= cms.InputTag('HighestPtAndMuonOppositeSignDR'),#this module has a selection efficiency 5%, but comment this line out, rate goes up to 80%.
     passDiscriminator = cms.bool(True),
-    pTMin = cms.double(20.0),
+    pTMin = cms.double(5.0),
     etaMax = cms.double(2.3),
     isoMax = cms.double(-1.0),
     dR = cms.double(0.5),
@@ -483,16 +490,17 @@ process.MuMuSequenceSelector=cms.Sequence(
 #        process.genAMuSelector*
         process.HighestPtAndMuonOppositeSignDR*
 	process.Mu1Mu2ID*
+#        process.Mu1Mu2Analyzer*
 	process.PtEtaCut*
 	process.Mu45Selector*
-        process.MuonVetoMu45*
- 	process.triggerMuonAnalyzer*
+#        process.MuonVetoMu45*
+# 	process.triggerMuonAnalyzer*
 #        process.genMatchedSelector*
 # 	process.AMuTriggerAnalyzer*
 	process.Mu3*
 	process.Mu3ID*
-        process.tauMuonPtSelector
- #      process.tauMuonAnalyzer
+        process.tauMuonPtSelector*
+       process.tauMuonAnalyzer
 #        process.genTauMuSelector
 #	process.genMatchedTauMuSelector
 )
@@ -500,7 +508,7 @@ process.MuMuSequenceSelector=cms.Sequence(
 process.noSelectionSequence = cms.Sequence(process.MuMuSequenceSelector*
                                            process.PFTau*
                                            process.muHadTauSelector*
-                                           process.tauMuonAnalyzer*
+                                           #process.tauMuonAnalyzer*
                                            process.btagging
                                         #   process.RECOAnalyze
 )

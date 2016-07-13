@@ -35,6 +35,10 @@
 #include "DataFormats/MuonReco/interface/MuonSelectors.h"
 #include "DataFormats/Math/interface/deltaR.h"
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
+#include "DataFormats/HepMCCandidate/interface/GenParticleFwd.h"
+#include "Tools/Common/interface/GenTauDecayID.h"
+#include "Tools/Common/interface/Common.h"
+
 //
 //
 // class declaration
@@ -61,6 +65,7 @@ class VetoMuon : public edm::EDFilter {
  edm::EDGetTokenT<reco::MuonRefVector> muonTag_;
  edm::EDGetTokenT<reco::MuonRefVector> vetoMuonTag_;
  double Cut_; 
+ edm::EDGetTokenT<reco::GenParticleCollection>  genParticleTag_;
  unsigned int minNumObjsToPassFilter_;
 };
 
@@ -79,6 +84,7 @@ VetoMuon::VetoMuon(const edm::ParameterSet& iConfig):
   muonTag_(consumes<reco::MuonRefVector>(iConfig.getParameter<edm::InputTag>("muonTag"))),
  vetoMuonTag_(consumes<reco::MuonRefVector>(iConfig.getParameter<edm::InputTag>("vetoMuonTag"))),
   Cut_(iConfig.getParameter<double>("dRCut")),
+  genParticleTag_(consumes<reco::GenParticleCollection>(iConfig.getParameter<edm::InputTag>("genParticleTag"))),
  minNumObjsToPassFilter_(iConfig.getParameter<unsigned int>("minNumObjsToPassFilter"))
 {
 
@@ -113,6 +119,14 @@ VetoMuon::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
   edm::Handle<reco::MuonRefVector> pVetoMuons;
   iEvent.getByToken(vetoMuonTag_, pVetoMuons);
 
+  edm::Handle<reco::GenParticleCollection> pGenParticles;
+  iEvent.getByToken(genParticleTag_, pGenParticles);
+
+  std::vector<reco::GenParticle*> genObjPtrs;
+  for (typename reco::GenParticleCollection::const_iterator iGenObj = pGenParticles->begin();
+       iGenObj != pGenParticles->end(); ++iGenObj) {
+    genObjPtrs.push_back(const_cast<reco::GenParticle*>(&(*iGenObj)));
+  }
 
   std::vector<int> vetoMuonRefKeys;
   if (pVetoMuons.isValid()) {
@@ -138,7 +152,13 @@ VetoMuon::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
 //		  iMuon->key()) == vetoMuonRefKeys.end()) {
     }
       if(count==(pVetoMuons->size()))
-      {muonColl->push_back(*iMuon);
+      {
+      //  int nearestGenObjKey=-1;
+       // const reco::GenParticle* nearestGenObj=
+       // Common::nearestObject(*iMuon, genObjPtrs, nearestGenObjKey);
+      //  std::cout<< " Mu3's Nearest Gen Muon's mother=="<<nearestGenObj->motherRef()->pdgId()<<std::endl;
+
+      muonColl->push_back(*iMuon);
       ++nPassingMuons;}
   }
   iEvent.put(muonColl);

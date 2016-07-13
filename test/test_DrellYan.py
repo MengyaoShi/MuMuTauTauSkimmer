@@ -1,8 +1,8 @@
 import FWCore.ParameterSet.Config as cms
 from subprocess import *
 import FWCore.Utilities.FileUtils as FileUtils
-mylist=FileUtils.loadListFromFile('/afs/cern.ch/user/m/mshi/CMSSW_7_6_3/src/GGHAA2Mu2TauAnalysis/testDrellYan.txt')
-process = cms.Process("testSKIM")
+mylist=FileUtils.loadListFromFile('/afs/cern.ch/user/m/mshi/CMSSW_7_6_3/src/GGHAA2Mu2TauAnalysis/testDrellYan20.txt')
+process = cms.Process("testSKIM1")
 
 #PDG IDs
 A_PDGID = 36
@@ -74,20 +74,19 @@ process.load("RecoTauTag.Configuration.RecoPFTauTag_cff")
 process.load("RecoTauTag.RecoTau.RecoTauPiZeroProducer_cfi")
 process.load('Tools/CleanJets/cleanjets_cfi')
 #require event to fire IsoMu24_eta2p1
-process.RECOAnalyze=cms.EDAnalyzer(
-'MuMuTauTauRecoAnalyzer',
-  tauTag=cms.InputTag('muHadTauSelector','','SKIM'),
-  muonTag1=cms.InputTag('Mu45Selector','','SKIM'),
-  muonTag2=cms.InputTag('HighestPTMuon2','','SKIM'),
- jetMuonMapTag=cms.InputTag('CleanJets','muonValMap','SKIM'),
-  genParticleTag=cms.InputTag('genParticles'),
-  muHadMassBins=cms.vdouble(0.0, 2.0, 4.0, 6.0, 8.0, 10.0,12.0,14.0, 16.0),
-  FourBInvMassBins=cms.vdouble(0.0,100.0,200.0,300.0,400.0,500.0,600.0,700.0,800.0),
-  outFileName=cms.string('testDrellYan_RECOAnalyzer.root')
+process.Mu1Mu2Analyzer=cms.EDAnalyzer(
+        'Mu1Mu2Analyzer',
+        genParticleTag = cms.InputTag('genParticles'),
+        Mu1Mu2=cms.InputTag('Mu1Mu2ID')
 )
-
+#output
+#process.noSelectedOutput = cms.OutputModule(
+#    "PoolOutputModule",
+#    SelectEvents = cms.untracked.PSet(SelectEvents = cms.vstring('p')),
+#    fileName = cms.untracked.string('DrellYan_SkimmedEvents.root')
+#    )
 process.noSelectionSequence = cms.Sequence(
-process.RECOAnalyze
+  process.Mu1Mu2Analyzer
 )
 
 process.TFileService = cms.Service("TFileService",
@@ -95,3 +94,4 @@ process.TFileService = cms.Service("TFileService",
 )
 #no selection path
 process.p = cms.Path(process.noSelectionSequence)
+#process.outpath = cms.EndPath(process.noSelectedOutput)
