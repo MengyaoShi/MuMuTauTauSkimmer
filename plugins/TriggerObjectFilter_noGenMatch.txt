@@ -49,9 +49,6 @@
 #include "FWCore/Common/interface/TriggerNames.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
-#include "DataFormats/HepMCCandidate/interface/GenParticleFwd.h"
-#include "Tools/Common/interface/GenTauDecayID.h"
-#include "Tools/Common/interface/Common.h"
 using namespace std;
 using namespace edm;
 using namespace reco;
@@ -77,7 +74,6 @@ class TriggerObjectFilter : public edm::EDFilter {
       virtual void endRun(const edm::Run& iRun, edm::EventSetup const& iSetup);
 //      virtual bool endLuminosityBlock(edm::LuminosityBlock&, edm::EventSetup const&)/* override*/;
       // ----------member data ---------------------------
-      edm::EDGetTokenT<reco::GenParticleCollection>  genParticleTag_;
       edm::EDGetTokenT<edm::RefVector<std::vector<T> > > recoObjTag_;
       edm::EDGetTokenT<trigger::TriggerEvent>  triggerEventTag_;
       edm::EDGetTokenT<edm::TriggerResults> triggerResultsTag_;
@@ -90,20 +86,6 @@ class TriggerObjectFilter : public edm::EDFilter {
       unsigned int minNumObjsToPassFilter1_;
       std::map<std::string, TH1D*> histos1D_;
       std::map<std::string, TH2D*> histos2D_;
-      int Mu1Mu2=0;
-      int Mu1Only=0;
-      int Mu2Only=0;
-      int Mu1FireAndOnlyMu1PassToTrigger=0;
-      int Other=0;
-      int Mu3=0;
-      int count=0;
-      int Mu1Mu2Match=0;
-      int Mu1Mu2FireMu1OnlyMatch=0;
-      int Mu1Mu2FireMu2OnlyMatch=0;
-      int Mu1Mu2FireNeitherMatch=0;
-      int Mu1OnlyMatch=0;
-      int Mu2OnlyMatch=0;
-      int Mu1FireAndOnlyMu1PassToTriggerMatch=0;
 };
 
 //
@@ -119,14 +101,17 @@ class TriggerObjectFilter : public edm::EDFilter {
 //
 template<class T>
 TriggerObjectFilter<T>::TriggerObjectFilter(const edm::ParameterSet& iConfig):
-  genParticleTag_(consumes<reco::GenParticleCollection>(iConfig.getParameter<edm::InputTag>("genParticleTag"))),
   recoObjTag_(consumes<edm::RefVector<std::vector<T> > >(iConfig.getParameter<edm::InputTag>("recoObjTag"))),
+////////////////  triggerEventTag_(consumes<trigger::TriggerEvent>(iConfig.getUntrackedParameter<edm::InputTag>("triggerEventTag"))),//,dTriggerEventTag))),
+  // By default, trigger results are labeled "TriggerResults" with process name "HLT" in the event.
+//////////  triggerResultsTag_(consumes<edm::TriggerResults>(iConfig.getUntrackedParameter<edm::InputTag>("triggerResultsTag"))),//,dTriggerResults)))
   Cut_(iConfig.getUntrackedParameter<double>("MatchCut")),
   hltTags_(iConfig.getParameter<std::vector<edm::InputTag> >("hltTags")),
   hltConfig_(),
   //hltConfig_ = iConfig.getParameter<HLTConfigProvider>("hltConfig");
   theRightHLTTag_(iConfig.getParameter<edm::InputTag>("theRightHLTTag")),
   theRightHLTSubFilter1_(iConfig.getParameter<edm::InputTag>("theRightHLTSubFilter1")),
+  //Whether using HLT trigger path name or the actual trigger filter name. Trigger path is default.
   HLTSubFilters_(iConfig.getUntrackedParameter<std::vector<edm::InputTag> >("HLTSubFilters",std::vector<edm::InputTag>())),
   minNumObjsToPassFilter1_(iConfig.getParameter<unsigned int>("minNumObjsToPassFilter1")),
   histos1D_(),
@@ -136,6 +121,7 @@ TriggerObjectFilter<T>::TriggerObjectFilter(const edm::ParameterSet& iConfig):
   triggerEventTag_ = (consumes<trigger::TriggerEvent>(iConfig.getUntrackedParameter<edm::InputTag>("triggerEventTag",dTriggerEventTag)));
   const edm::InputTag dTriggerResults("TriggerResults","","HLT");
   triggerResultsTag_ = (consumes<edm::TriggerResults>(iConfig.getUntrackedParameter<edm::InputTag>("triggerResultsTag",dTriggerResults)));
+
   produces<edm::RefVector<std::vector<T> > >();
 }
 
@@ -162,6 +148,7 @@ template<class T>
 void TriggerObjectFilter<T>::beginRun(const edm::Run& iRun, edm::EventSetup const& iSetup)
 {
   bool changed_ = true;
+  //std::cout << "beginRun"<< std::endl;
   
   if ( !hltConfig_.init(iRun,iSetup,hltTags_[0].process(),changed_) ){
     edm::LogError("TriggerObjectFilter") <<
@@ -174,6 +161,7 @@ template<class T>
 void
 TriggerObjectFilter<T>::beginJob()
 {
+  //std::cout<< "beginJob" << std::endl;
   edm::Service<TFileService> fileService;
   histos1D_[ "etaDistri_YesTriggerYesMatch" ]=fileService->make<TH1D>("etaDistri_YesTriggerYesMatch","eta distribution of highest pt muon with fired HLT and trigger-reco match",60,-3.,3.);
   histos1D_["etaDistri_NoTriggerNoMatch"]=fileService->make<TH1D>("etaDistri_NoTriggerNoMatch","eta distribution of all reco muon without trigger fired or trigger-reco match H750a09",60,-3.,3.);
@@ -188,11 +176,6 @@ TriggerObjectFilter<T>::beginJob()
   histos2D_[ "ptTrigCand1" ]->SetXTitle( "candidate p_{T} (GeV)" );
   histos2D_[ "ptTrigCand1" ]->SetYTitle( "object p_{T} (GeV)" );
   
-  histos1D_["ptTrigCand0"] =fileService->make< TH1D >("ptTrigCand0","percentage",100, 0, 1.0);
-  histos1D_["dRMatch"]=fileService->make<TH1D>("dRMatch","dRMatch", 100, 0, 0.5);
-   histos1D_["ptTrigCand2"] =fileService->make< TH1D >("ptTrigCand0","percentage",100, 0, 1.0);
-  histos1D_["ptTrigCand3"] =fileService->make< TH1D >("ptTrigCand0","percentage",100, 0, 1.0); 
-  histos1D_["Chi2"]=fileService->make<TH1D>("Chi2 ", "Chi2", 100, 0, 50.0); 
 }
 
 // ------------ method called on each new Event  ------------
@@ -201,19 +184,14 @@ bool
 TriggerObjectFilter<T>::filter( edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
   //create pointer to output collection
-  std::cout<<"@@@@@@@@@@@@@@@@@@@@@@in Event@@@@@@@@@@@@@@@@@@@@@@@@"<<std::endl;
   std::auto_ptr<edm::RefVector<std::vector<T> > > recoObjColl(new edm::RefVector<std::vector<T> >);
   int index1 = 9999;
 
-  edm::Handle<reco::GenParticleCollection> pGenParticles;
-  iEvent.getByToken(genParticleTag_, pGenParticles);
   //get reco objects
   edm::Handle<edm::RefVector<std::vector<T> > > recoObjs;
   iEvent.getByToken(recoObjTag_, recoObjs);
 
   double max=0.0;
-  reco::MuonRef maxMuon;
-  //std::cout<<"recoObjs->size()="<<recoObjs->size()<<std::endl;
   //double eta_of_max=0.0;
   for (typename edm::RefVector<std::vector<T> >::const_iterator iRecoObj =
                 recoObjs->begin(); iRecoObj != recoObjs->end();
@@ -223,44 +201,20 @@ TriggerObjectFilter<T>::filter( edm::Event& iEvent, const edm::EventSetup& iSetu
     if(max<((*iRecoObj)->pt()))
     {
       max=(*iRecoObj)->pt();
-      maxMuon=(*iRecoObj);
     }
     else
       continue;
     
-  }
-
-  double secondMax=0.0;
-  reco::MuonRef secondMaxMuon;
-  for(typename edm::RefVector<std::vector<T> >::const_iterator iRecoObj =
-                recoObjs->begin(); iRecoObj != recoObjs->end();
-              ++iRecoObj)
-  {
-     if(recoObjs->size()>1 && ((*iRecoObj)->pt())< max &&(((*iRecoObj)->pt())>secondMax))
-     {
-       secondMax=(*iRecoObj)->pt();
-       secondMaxMuon=(*iRecoObj);
-     }
-     else
-       continue;
-  }
- 
+  } 
   // Trigger Info
   edm::Handle<trigger::TriggerEvent> trgEvent;
   iEvent.getByToken(triggerEventTag_, trgEvent);
 
   edm::Handle<edm::TriggerResults> pTrgResults;
   iEvent.getByToken(triggerResultsTag_, pTrgResults);
-  std::vector<reco::GenParticle*> genObjPtrs;
-  for (typename reco::GenParticleCollection::const_iterator iGenObj = pGenParticles->begin();
-       iGenObj != pGenParticles->end(); ++iGenObj) {
-    genObjPtrs.push_back(const_cast<reco::GenParticle*>(&(*iGenObj)));
-  }
-
 
   std::map<std::string, bool> triggerInMenu;
   std::string myHLTFilter = "";
-
 
   // get names of active HLT paths in this event
   std::vector<std::string> activeHLTPathsInThisEvent = hltConfig_.triggerNames();
@@ -299,173 +253,67 @@ TriggerObjectFilter<T>::filter( edm::Event& iEvent, const edm::EventSetup& iSetu
    if (index1== 9999){
      index1 = 0;
      }
-   //std::cout<<"index1="<<index1<<std::endl;
    const trigger::Keys& KEYS1(trgEvent->filterKeys(index1));
    const size_type nK1(KEYS1.size());
-   //std::cout<<"KEYS1.size()="<<"nK1="<<nK1<<std::endl;
    const edm::TriggerNames &trgNames = iEvent.triggerNames(*pTrgResults);
    const unsigned int trgIndex = trgNames.triggerIndex(myHLTFilter);
    bool firedHLT = (trgIndex < trgNames.size()) && (pTrgResults->accept(trgIndex));
    std::vector<unsigned int> passingRecoObjRefKeys1;
    std::vector<unsigned int> passingRecoObjRefKeys1_NoHLT;
  
-   std::vector<trigger::TriggerObject*> triObjPtrs;
-   for(int ipart1 = 0; ipart1 != nK1; ++ipart1)
-   {
+   //not requiring HLT fired
+   for(int ipart1 = 0; ipart1 != nK1; ++ipart1) {
      const trigger::TriggerObject& TO1 = TOC[KEYS1[ipart1]];
-     triObjPtrs.push_back(const_cast<trigger::TriggerObject*>(&TO1));
+     for (typename edm::RefVector<std::vector<T> >::const_iterator iRecoObj =
+                recoObjs->begin(); iRecoObj != recoObjs->end();
+              ++iRecoObj) {
+       if ((deltaR(**iRecoObj, TO1) < Cut_) &&
+                 (std::find(passingRecoObjRefKeys1_NoHLT.begin(), passingRecoObjRefKeys1_NoHLT.end(),
+                          iRecoObj->key()) == passingRecoObjRefKeys1_NoHLT.end())) {
+         passingRecoObjRefKeys1_NoHLT.push_back(iRecoObj->key());
+         histos1D_["etaDistri_NoTriggerYesMatch"]->Fill((*iRecoObj)->eta());
+         //recoObjColl->push_back(*iRecoObj);
+       }
+     }
    }
   // if(passingRecoObjRefKeys1_NoHLT.size()<1){
    //   std::cout << "Run " << iEvent.run() << ", event " << iEvent.id().event() << ", lumi section ";
     // std::cout << iEvent.getLuminosityBlock().luminosityBlock() << std::endl << std::endl;
   // }
      
-   
-   if (firedHLT)
-   { // firedHLT
-     bool Mu1Fire=false;
-     bool Mu2Fire=false;      
-     bool Mu3Fire=false;
-     bool Mu1MatchOrNot=false;
-     bool Mu2MatchOrNot=false;
-     std::cout<<"***************Trigger Fired********"<<std::endl;
-     for (typename edm::RefVector<std::vector<T> >::const_iterator iRecoObj =
-                recoObjs->begin(); iRecoObj != recoObjs->end();
-           ++iRecoObj) 
-     {
-       histos1D_["etaDistri_YesTriggerNoMatch"]->Fill((*iRecoObj)->eta());
-       //std::cout<<"nK1="<<nK1<<std::endl;
-       if (/*(deltaR(**iRecoObj, TO1) < Cut_) &&*/
-             (std::find(passingRecoObjRefKeys1.begin(), passingRecoObjRefKeys1.end(),
-                        iRecoObj->key()) == passingRecoObjRefKeys1.end())) 
-       {
-         //std::cout<<"iRecoObj->key()"<<(iRecoObj->key())<<std::endl;
-         int nearestGenObjKey=-1;
-         const reco::GenParticle* nearestGenObj=
-                 Common::nearestObject(*iRecoObj, genObjPtrs, nearestGenObjKey);
-         while(abs(nearestGenObj->motherRef()->pdgId())==13)
-           nearestGenObj=(&(*(nearestGenObj->motherRef())));
-            
-         std::cout<< " Triggered object's Gen Muon's mother=="<<nearestGenObj->motherRef()->pdgId()<<std::endl;
-         if(reco::deltaR(*nearestGenObj, *maxMuon)<0.002 && abs(nearestGenObj->motherRef()->pdgId())==36)
-         { 
-           std::cout<<"Triggered object is Mu1"<< std::endl;
-           Mu1Fire= true;
-           int nearestObjKey=-1;
-           const trigger::TriggerObject* nearestTrigObj=
-                 Common::nearestObject(*iRecoObj, triObjPtrs, nearestObjKey);
+   histos1D_["EventSize"]->Fill(passingRecoObjRefKeys1_NoHLT.size());
+ 
 
-           histos1D_["dRMatch"]->Fill(deltaR(**iRecoObj, *nearestTrigObj));
-           if(deltaR(**iRecoObj, *nearestTrigObj)<Cut_)
-           {  
-             Mu1MatchOrNot=true;
-             //std::cout<<"And Matched"<<std::endl;
-             passingRecoObjRefKeys1.push_back(iRecoObj->key());
-             recoObjColl->push_back(*iRecoObj);
+
+
+   if (firedHLT)
+     { // firedHLT
+         for(int ipart1 = 0; ipart1 != nK1; ++ipart1) {
+
+           const trigger::TriggerObject& TO1 = TOC[KEYS1[ipart1]];
+
+           for (typename edm::RefVector<std::vector<T> >::const_iterator iRecoObj =
+                recoObjs->begin(); iRecoObj != recoObjs->end();
+              ++iRecoObj) {
+              histos1D_["etaDistri_YesTriggerNoMatch"]->Fill((*iRecoObj)->eta());
+      //       isLooseMuon1=muon::isLooseMuon(**iRecoObj);
+             if ((deltaR(**iRecoObj, TO1) < Cut_) &&
+                 (std::find(passingRecoObjRefKeys1.begin(), passingRecoObjRefKeys1.end(),
+                            iRecoObj->key()) == passingRecoObjRefKeys1.end())) {
+                 recoObjColl->push_back(*iRecoObj);
+                 histos1D_["etaDistri_YesTriggerYesMatch"]->Fill((*iRecoObj)->eta());
+                 histos2D_[ "ptTrigCand1"]->Fill((*iRecoObj)->pt(), TO1.pt());
+               passingRecoObjRefKeys1.push_back(iRecoObj->key());
+             }
            }
-         }
-         if(recoObjs->size()>1 && reco::deltaR(*nearestGenObj, *secondMaxMuon)< 0.002 && abs(nearestGenObj->motherRef()->pdgId())==36)
-         {
-           Mu2Fire=true;
-           std::cout<<"Triggered object is Mu2"<< std::endl;
-           int nearestObjKey=-1;
-           const trigger::TriggerObject* nearestTrigObjMu2=
-                 Common::nearestObject(*iRecoObj, triObjPtrs, nearestObjKey);
-           histos1D_["dRMatch"]->Fill(deltaR(**iRecoObj, *nearestTrigObjMu2));
-           if(deltaR(**iRecoObj, *nearestTrigObjMu2)<Cut_)
-           {
-             Mu2MatchOrNot=true;
-             //std::cout<<"And Matched"<<std::endl;
-             passingRecoObjRefKeys1.push_back(iRecoObj->key());
-             recoObjColl->push_back(*iRecoObj);
-           }
-         }
-         if(abs(nearestGenObj->motherRef()->pdgId())!=36)
-         {
-           if(abs(nearestGenObj->motherRef()->pdgId())==15)
-           {
-             Mu3Fire=true;
-           }
-           //std::cout<< "pt of triggered object=="<< (*iRecoObj)->pt()<<std::endl;
-           //std::cout<< "eta of triggered object=="<< (*iRecoObj)->eta()<<std::endl;
-         }
-         if(Mu1MatchOrNot||Mu2MatchOrNot)
-         {
-           std::cout<<"recoObjColl->size()="<<recoObjColl->size()<<std::endl;
-         }
-       }
-     }//forReco
-     if(Mu1Fire && Mu2Fire)
-     {
-       Mu1Mu2++;
-       if(Mu1MatchOrNot && Mu2MatchOrNot)
-       {
-         Mu1Mu2Match++;
-         std::cout<<"Mu1Mu2 Matched"<<std::endl;
-       }
-       else if(Mu1MatchOrNot && !Mu2MatchOrNot)
-       {
-         Mu1Mu2FireMu1OnlyMatch++;
-         std::cout<<"Only Mu1 Matched"<<std::endl;
-       }
-       else if(!Mu1MatchOrNot && Mu2MatchOrNot)
-       {
-         Mu1Mu2FireMu2OnlyMatch++;
-         std::cout<<"Only Mu2 Matched"<<std::endl;
-       }
-       else if(!Mu1MatchOrNot && !Mu2MatchOrNot)
-       {
-         Mu1Mu2FireNeitherMatch++;
-       }
-     }
-     else if(Mu1Fire && !Mu2Fire && recoObjs->size()>1)
-     {
-       Mu1Only++;
-       //std::cout<<"Run "<<iEvent.run()<<", event" << iEvent.id().event()<<std::endl;
-       if(Mu1MatchOrNot && !Mu2MatchOrNot)
-       {
-         Mu1OnlyMatch++;
-         //std::cout<<"Mu1OnlyMatch"<<std::endl;
-       }
-     }
-     else if (!Mu1Fire && Mu2Fire && recoObjs->size()>1)
-     {
-       Mu2Only++;
-       //std::cout<<"when only Mu2Fire with Mu1 present, pt of Mu2 is"<<secondMaxMuon->pt()<<std::endl;
-       //std::cout<<"Run "<<iEvent.run()<<", event" << iEvent.id().event()<<std::endl;
-       //std::cout<<"deltaR between Mu1Mu2="<<reco::deltaR(*maxMuon, *secondMaxMuon);
-       //std::cout<<"pt of Mu1 is "<< maxMuon->pt()<<std::endl;
-       if(!Mu1MatchOrNot && Mu2MatchOrNot)
-       {
-          Mu2OnlyMatch++;
-         // std::cout<<"Mu1OnlyMatch"<<std::endl;
-       }
-     }
-     else if(recoObjs->size()<=1&& Mu1Fire)
-     {
-       Mu1FireAndOnlyMu1PassToTrigger++;
-       if(Mu1MatchOrNot)
-       {
-         Mu1FireAndOnlyMu1PassToTriggerMatch++;
-       //  std::cout<<"Mu1Match and there is only Mu1"<<std::endl;
-       }
-     }
-     else if(Mu3Fire)
-       Mu3++;
-     else
-       Other++;
-     count++; 
-   }//firedHLT
+         } 
+     }//firedH
    if(!firedHLT){
-   // std::cout << "Run " << iEvent.run() << ", event " << iEvent.id().event() << ", lumi section ";
-   // std::cout << iEvent.getLuminosityBlock().luminosityBlock() << std::endl << std::endl;
-   }
-    
+    // std::cout << "Run " << iEvent.run() << ", event " << iEvent.id().event() << ", lumi section ";
+    // std::cout << iEvent.getLuminosityBlock().luminosityBlock() << std::endl << std::endl;
+     }
    iEvent.put(recoObjColl);
-   //std::cout<<"decision="<<(passingRecoObjRefKeys1.size()>=minNumObjsToPassFilter1_)<<"passingRecoObjRefKeys1.size()="<<passingRecoObjRefKeys1.size()<<std::endl;
-   //if(passingRecoObjRefKeys1.size()<minNumObjsToPassFilter1_)
-     // std::cout << "Run " << iEvent.run() << ", event " << iEvent.id().event() << ", lumi section "; 
-   return passingRecoObjRefKeys1.size()>=minNumObjsToPassFilter1_;
+   return (passingRecoObjRefKeys1.size() >= minNumObjsToPassFilter1_);
 }
 
 // ------------ method called when starting to processes a run  ------------
@@ -477,20 +325,6 @@ TriggerObjectFilter<T>::filter( edm::Event& iEvent, const edm::EventSetup& iSetu
 template<class T>
 void 
 TriggerObjectFilter<T>::endJob() {
-   std::cout<<"Mu1Mu2Fire="<<Mu1Mu2<<std::endl;
-   std::cout<<"Mu1Only="<<Mu1Only<<std::endl;
-   std::cout<<"Mu2Only="<<Mu2Only<<std::endl;
-   std::cout<<"Mu1FireAndOnlyMu1PassToTrigger="<<Mu1FireAndOnlyMu1PassToTrigger<<std::endl;
-   std::cout<<"Mu3Fire=="<<Mu3<<std::endl;
-   std::cout<<"Other="<<Other<<std::endl;
-   std::cout<<"Count="<<count<<std::endl;
-   std::cout<<"Mu1Mu2FireMatch="<<Mu1Mu2Match<<std::endl;
-   std::cout<<"Mu1OnlyMatch="<<Mu1OnlyMatch<<std::endl;
-   std::cout<<"Mu2OnlyMatch="<<Mu2OnlyMatch<<std::endl;
-   std::cout<<"Mu1Mu2FireMu1OnlyMatch="<<Mu1Mu2FireMu1OnlyMatch<<std::endl;
-   std::cout<<"Mu1Mu2FireMu2OnlyMatch="<<Mu1Mu2FireMu2OnlyMatch<<std::endl;
-   std::cout<<"Mu1Mu2FireNeitherMatch="<<Mu1Mu2FireNeitherMatch<<std::endl;
-   std::cout<<"Mu1FireAndOnlyMu1PassToTriggerMatch="<<Mu1FireAndOnlyMu1PassToTriggerMatch<<std::endl;
    histos1D_["Efficiency_YesTriggerNoMatch"]->Divide(  histos1D_[ "etaDistri_YesTriggerYesMatch" ],  histos1D_[ "etaDistri_NoTriggerYesMatch" ]);
    histos1D_["Efficiency_YesTriggerYesMatch"]->Divide(  histos1D_[ "etaDistri_YesTriggerYesMatch" ],  histos1D_[ "etaDistri_NoTriggerNoMatch" ]);
 }
