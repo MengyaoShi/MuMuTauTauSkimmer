@@ -1,9 +1,9 @@
 // -*- C++ -*-
 //
-// Package:    temp/HighestSecondHighestPtSelector
-// Class:      HighestSecondHighestPtSelector
+// Package:    temp/MuonOppositeSignDRSelector
+// Class:      MuonOppositeSignDRSelector
 // 
-/**\class HighestSecondHighestPtSelector HighestSecondHighestPtSelector.cc temp/HighestSecondHighestPtSelector/plugins/HighestSecondHighestPtSelector.cc
+/**\class MuonOppositeSignDRSelector MuonOppositeSignDRSelector.cc temp/MuonOppositeSignDRSelector/plugins/MuonOppositeSignDRSelector.cc
 
  Description: [one line class summary]
 
@@ -35,18 +35,15 @@
 #include "DataFormats/MuonReco/interface/MuonSelectors.h"
 #include "DataFormats/Math/interface/deltaR.h"
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
-
-#include "DataFormats/VertexReco/interface/VertexFwd.h"
-#include "Tools/Common/interface/Common.h"
 //
 //
 // class declaration
 //
 
-class HighestSecondHighestPtSelector : public edm::EDFilter {
+class MuonOppositeSignDRSelector : public edm::EDFilter {
    public:
-      explicit HighestSecondHighestPtSelector(const edm::ParameterSet&);
-      ~HighestSecondHighestPtSelector();
+      explicit MuonOppositeSignDRSelector(const edm::ParameterSet&);
+      ~MuonOppositeSignDRSelector();
 
       static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
@@ -62,10 +59,9 @@ class HighestSecondHighestPtSelector : public edm::EDFilter {
 
       // ----------member data ---------------------------
 edm::EDGetTokenT<reco::MuonRefVector> muonTag_; 
-edm::EDGetTokenT<reco::VertexCollection> vtxTag_;
+double Cut_;
+double Mu2PtCut_;
 std::map<std::string, TH1D*> histos1D_;
-std::string muon1ID_;
-std::string muon2ID_;
 };
 
 //
@@ -79,19 +75,18 @@ std::string muon2ID_;
 //
 // constructors and destructor
 //
-HighestSecondHighestPtSelector::HighestSecondHighestPtSelector(const edm::ParameterSet& iConfig):
+MuonOppositeSignDRSelector::MuonOppositeSignDRSelector(const edm::ParameterSet& iConfig):
   muonTag_(consumes<reco::MuonRefVector>(iConfig.getParameter<edm::InputTag>("muonTag"))),
-  vtxTag_(consumes<reco::VertexCollection>(iConfig.getParameter<edm::InputTag>("vtxTag"))),
-  histos1D_(),
-  muon1ID_(iConfig.getParameter<std::string>("muon1ID")),
-  muon2ID_(iConfig.getParameter<std::string>("muon2ID"))
+  Cut_(iConfig.getParameter<double>("dRCut")),
+  Mu2PtCut_(iConfig.getParameter<double>("Mu2PtCut")),
+  histos1D_()
 {
    //now do what ever initialization is needed
    produces<reco::MuonRefVector>();
 }
 
 
-HighestSecondHighestPtSelector::~HighestSecondHighestPtSelector()
+MuonOppositeSignDRSelector::~MuonOppositeSignDRSelector()
 {
  
    // do anything here that needs to be done at desctruction time
@@ -106,7 +101,7 @@ HighestSecondHighestPtSelector::~HighestSecondHighestPtSelector()
 
 // ------------ method called on each new Event  ------------
 bool
-HighestSecondHighestPtSelector::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
+MuonOppositeSignDRSelector::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
    bool LargerThan0=true;
    using namespace edm;
@@ -120,11 +115,8 @@ HighestSecondHighestPtSelector::filter(edm::Event& iEvent, const edm::EventSetup
    else
    {
      double max=0.0;
-     double secondMax=0.0;
-     bool Mu1Identified=false;
-     bool Mu2Identified=false;
      reco::MuonRef maxMuon;
-     reco::MuonRef secondMaxMuon;
+     reco::MuonRef OppositeSignSmallDRMuon;
      for(reco::MuonRefVector::const_iterator iMuon=pMuons->begin();
          iMuon!=pMuons->end();++iMuon)
      {
@@ -136,93 +128,51 @@ HighestSecondHighestPtSelector::filter(edm::Event& iEvent, const edm::EventSetup
        else
          continue;
      }
-    
+     std::auto_ptr<reco::MuonRefVector> muonColl(new reco::MuonRefVector);
 
      for(reco::MuonRefVector::const_iterator iMuon=pMuons->begin();
          iMuon!=pMuons->end();++iMuon)
      {
-       if(((*iMuon)->pt()< (maxMuon->pt()))&&((*iMuon)->pt()>secondMax )&&((*iMuon)->pdgId()==(-1)*((maxMuon)->pdgId())))
+       if(((*iMuon)->pt()< (maxMuon->pt()))&&(deltaR(**iMuon, *maxMuon)<Cut_||(Cut_==-1) )&&((*iMuon)->pdgId()==(-1)*((maxMuon)->pdgId()))&&((*iMuon)->pt()>Mu2PtCut_))
        {
-         secondMax=(*iMuon)->pt();
-         secondMaxMuon=(*iMuon);
+         double deltaR=0.0;
+         OppositeSignSmallDRMuon=(*iMuon);
+         muonColl->push_back(OppositeSignSmallDRMuon);
+         deltaR=reco::deltaR(*maxMuon, *OppositeSignSmallDRMuon);
+         histos1D_["deltaR"]->Fill(deltaR);
+         histos1D_["pt"]->Fill((*iMuon)->pt());
        }
        else 
   	  continue;
      }
-     
-     edm::Handle<reco::VertexCollection> pVertices;
-     iEvent.getByToken(vtxTag_, pVertices);
-     reco::Vertex* pPV = Common::getPrimaryVertex(pVertices);
+     if(OppositeSignSmallDRMuon.isNull())
+     {LargerThan0=0; return LargerThan0;
+     }
 
-     if(!(secondMaxMuon.isNull()))
-     {  
-       if(muon1ID_ == "loose"){
-         if( muon::isLooseMuon(*maxMuon))
-           Mu1Identified = true;
-         else Mu1Identified = false;
-       }
-       else if(muon1ID_== "tightNew"){
-         if ((pPV != NULL) && muon::isTightMuon(*maxMuon, *pPV))
-            Mu1Identified = true;
-         else Mu1Identified = false;
-       }
-       else throw cms::Exception("CustomMuonSelector") << "Error: unsupported muon1 ID.\n";
-
-       if(muon2ID_ == "loose"){
-         if(muon::isLooseMuon(*secondMaxMuon))
-           Mu2Identified = true;
-         else
-           Mu2Identified = false;
-       }
-       else if(muon2ID_ == "tightNew"){
-         if((pPV != NULL) && muon::isTightMuon(*secondMaxMuon, *pPV))
-            Mu2Identified = true;
-         else Mu2Identified = false;
-       }
-       else throw cms::Exception("CustomMuonSelector") << "Error: unsupported muon2 ID.\n";
-
-     }
-     else{
-       LargerThan0=0; return LargerThan0;
-     }
-     
-     if(Mu1Identified==false || Mu2Identified==false )
-     {
-       LargerThan0=0;
-       return 
-       LargerThan0;
-     }
-     else
-     {
-       LargerThan0=1;  
-       std::auto_ptr<reco::MuonRefVector> muonColl(new reco::MuonRefVector);
-       histos1D_["Pt_SecondHighest"]->Fill(secondMaxMuon->pt());
-       muonColl->push_back(maxMuon);
-       muonColl->push_back(secondMaxMuon);
-       iEvent.put(muonColl);
-     }
+     iEvent.put(muonColl);
    }
 
    return LargerThan0;
 }
-
 // ------------ method called once each job just before starting event loop  ------------
 void 
-HighestSecondHighestPtSelector::beginJob()
+MuonOppositeSignDRSelector::beginJob()
 {
- edm::Service<TFileService> fileService;
-  histos1D_[ "Pt_SecondHighest" ]=fileService->make<TH1D>("Pt_SecondHighest","bla",100,0,500);
+  edm::Service<TFileService> fileService;
+  histos1D_["deltaR"]=fileService->make<TH1D>("deltaR of trigger muon and nearest Mu1 or Mu2","deltaR of trigger muon and nearest Mu1 or Mu2", 10, 0.0, 5.0);
+  histos1D_["pt"]=fileService->make<TH1D>("pt of fake Mu2", "pt of fake Mu2", 10, 0, 10.0);
+
 }
 
 // ------------ method called once each job just after ending the event loop  ------------
 void 
-HighestSecondHighestPtSelector::endJob() {
+MuonOppositeSignDRSelector::endJob() {
 }
 
 // ------------ method called when starting to processes a run  ------------
 /*
 void
-HighestSecondHighestPtSelector::beginRun(edm::Run const&, edm::EventSetup const&)
+MuonOppositeSignDRSelector::beginRun(edm::Run const&, edm::EventSetup const&)
 { 
 }
 */
@@ -230,7 +180,7 @@ HighestSecondHighestPtSelector::beginRun(edm::Run const&, edm::EventSetup const&
 // ------------ method called when ending the processing of a run  ------------
 /*
 void
-HighestSecondHighestPtSelector::endRun(edm::Run const&, edm::EventSetup const&)
+MuonOppositeSignDRSelector::endRun(edm::Run const&, edm::EventSetup const&)
 {
 }
 */
@@ -238,7 +188,7 @@ HighestSecondHighestPtSelector::endRun(edm::Run const&, edm::EventSetup const&)
 // ------------ method called when starting to processes a luminosity block  ------------
 /*
 void
-HighestSecondHighestPtSelector::beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&)
+MuonOppositeSignDRSelector::beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&)
 {
 }
 */
@@ -246,14 +196,14 @@ HighestSecondHighestPtSelector::beginLuminosityBlock(edm::LuminosityBlock const&
 // ------------ method called when ending the processing of a luminosity block  ------------
 /*
 void
-HighestSecondHighestPtSelector::endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&)
+MuonOppositeSignDRSelector::endLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&)
 {
 }
 */
  
 // ------------ method fills 'descriptions' with the allowed parameters for the module  ------------
 void
-HighestSecondHighestPtSelector::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+MuonOppositeSignDRSelector::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   //The following says we do not know what parameters are allowed so do no validation
   // Please change this to state exactly what you do use, even if it is no parameters
   edm::ParameterSetDescription desc;
@@ -261,4 +211,4 @@ HighestSecondHighestPtSelector::fillDescriptions(edm::ConfigurationDescriptions&
   descriptions.addDefault(desc);
 }
 //define this as a plug-in
-DEFINE_FWK_MODULE(HighestSecondHighestPtSelector);
+DEFINE_FWK_MODULE(MuonOppositeSignDRSelector);

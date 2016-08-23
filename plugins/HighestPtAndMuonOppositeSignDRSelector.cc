@@ -60,6 +60,7 @@ class HighestPtAndMuonOppositeSignDRSelector : public edm::EDFilter {
       // ----------member data ---------------------------
 edm::EDGetTokenT<reco::MuonRefVector> muonTag_; 
 double Cut_;
+double Mu2PtCut_;
 std::map<std::string, TH1D*> histos1D_;
 };
 
@@ -77,6 +78,7 @@ std::map<std::string, TH1D*> histos1D_;
 HighestPtAndMuonOppositeSignDRSelector::HighestPtAndMuonOppositeSignDRSelector(const edm::ParameterSet& iConfig):
   muonTag_(consumes<reco::MuonRefVector>(iConfig.getParameter<edm::InputTag>("muonTag"))),
   Cut_(iConfig.getParameter<double>("dRCut")),
+  Mu2PtCut_(iConfig.getParameter<double>("Mu2PtCut")),
   histos1D_()
 {
    //now do what ever initialization is needed
@@ -126,15 +128,17 @@ HighestPtAndMuonOppositeSignDRSelector::filter(edm::Event& iEvent, const edm::Ev
        else
          continue;
      }
-    
+     std::auto_ptr<reco::MuonRefVector> muonColl(new reco::MuonRefVector);
+     muonColl->push_back(maxMuon);
 
      for(reco::MuonRefVector::const_iterator iMuon=pMuons->begin();
          iMuon!=pMuons->end();++iMuon)
      {
-       if(((*iMuon)->pt()< (maxMuon->pt()))&&(deltaR(**iMuon, *maxMuon)<Cut_||(Cut_==-1) )&&((*iMuon)->pdgId()==(-1)*((maxMuon)->pdgId()))&&((*iMuon)->pt()>20.0))
+       if(((*iMuon)->pt()< (maxMuon->pt()))&&(deltaR(**iMuon, *maxMuon)<Cut_||(Cut_==-1) )&&((*iMuon)->pdgId()==(-1)*((maxMuon)->pdgId()))&&((*iMuon)->pt()>Mu2PtCut_))
        {
          double deltaR=0.0;
          OppositeSignSmallDRMuon=(*iMuon);
+         muonColl->push_back(OppositeSignSmallDRMuon);
          deltaR=reco::deltaR(*maxMuon, *OppositeSignSmallDRMuon);
          histos1D_["deltaR"]->Fill(deltaR);
          histos1D_["pt"]->Fill((*iMuon)->pt());
@@ -146,15 +150,11 @@ HighestPtAndMuonOppositeSignDRSelector::filter(edm::Event& iEvent, const edm::Ev
      {LargerThan0=0; return LargerThan0;
      }
 
-     std::auto_ptr<reco::MuonRefVector> muonColl(new reco::MuonRefVector);
-     muonColl->push_back(maxMuon);
-     muonColl->push_back(OppositeSignSmallDRMuon);
      iEvent.put(muonColl);
    }
 
    return LargerThan0;
 }
-
 // ------------ method called once each job just before starting event loop  ------------
 void 
 HighestPtAndMuonOppositeSignDRSelector::beginJob()
